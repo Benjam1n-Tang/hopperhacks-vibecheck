@@ -21,6 +21,7 @@ export default function SessionPage() {
   const [summary, setSummary] = useState('');
   const [hasJoined, setHasJoined] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -111,6 +112,34 @@ export default function SessionPage() {
       alert('An error occurred. Please try again.');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleSeedTestParticipants = async (count: number = 10) => {
+    setIsSeeding(true);
+    try {
+      const response = await fetch('/api/session/seed-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          count,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Added ${data.participants.length} test participants`);
+      } else {
+        const error = await response.json();
+        console.error('Failed to seed participants:', error);
+        alert('Failed to add test participants.');
+      }
+    } catch (error) {
+      console.error('Error seeding participants:', error);
+      alert('An error occurred while adding test participants.');
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -208,13 +237,38 @@ export default function SessionPage() {
             <h2 className="text-2xl font-bold text-white mb-4">
               Host Controls
             </h2>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <button className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105">
                 Generate Groups
               </button>
               <button className="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-all transform hover:scale-105">
                 Close Session
               </button>
+
+              {/* Testing Tools */}
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={() => handleSeedTestParticipants(5)}
+                  disabled={isSeeding}
+                  className="bg-blue-600 text-white font-semibold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {isSeeding ? 'Adding...' : '+ 5 Test Users'}
+                </button>
+                <button
+                  onClick={() => handleSeedTestParticipants(10)}
+                  disabled={isSeeding}
+                  className="bg-blue-600 text-white font-semibold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {isSeeding ? 'Adding...' : '+ 10 Test Users'}
+                </button>
+                <button
+                  onClick={() => handleSeedTestParticipants(20)}
+                  disabled={isSeeding}
+                  className="bg-blue-600 text-white font-bold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {isSeeding ? 'Adding...' : '+ 20 Test Users'}
+                </button>
+              </div>
             </div>
           </div>
         )}

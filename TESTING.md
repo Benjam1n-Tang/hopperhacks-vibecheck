@@ -59,6 +59,35 @@ This will create:
    - Join with a different name
    - Watch all tabs update in real-time
 
+### Quick Test: Add Multiple Participants at Once
+
+Want to test with a lot of participants quickly? Use the test seed buttons!
+
+1. **Create a session** and sign in as the host
+2. **Scroll to Host Controls** at the bottom of the session page
+3. **Click one of the test buttons**:
+   - "+ 5 Test Users" - adds 5 random participants
+   - "+ 10 Test Users" - adds 10 random participants
+   - "+ 20 Test Users" - adds 20 random participants
+
+4. **Watch them appear in real-time** across all tabs
+5. Each test participant has:
+   - A unique random name (e.g., "Alex42", "Jordan17")
+   - A random interest/personality summary
+   - These work great for testing the grouping algorithm!
+
+**Tip:** Open multiple tabs first, then seed participants to see the real-time magic happen everywhere at once!
+
+**Alternative: Command-line script**
+
+You can also add test participants from the terminal:
+
+```bash
+node scripts/seed-participants.js ABC123 15
+```
+
+This adds 15 test participants to session ABC123. Great for automation or quick testing!
+
 ### Test Scenario: Different Devices/Browsers
 
 1. Create a session on your computer
