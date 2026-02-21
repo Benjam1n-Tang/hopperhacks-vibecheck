@@ -144,6 +144,50 @@ Want to test with a lot of participants quickly? Use the test seed buttons!
 
 **Tip:** Open multiple tabs first, then seed participants to see the real-time magic happen everywhere at once!
 
+### Test Scenario: Participant Reconnection & Saved Info
+
+Real users (non-generated) have their information saved and can automatically rejoin!
+
+**What happens:**
+
+- When you join a session, your name and summary are saved locally
+- If you close the tab, you're automatically removed from the participants list
+- If you reopen the same session link, you'll **automatically rejoin** with your saved info
+
+**How to test it:**
+
+1. **Join a session as a participant** (not as host):
+   - Open `localhost:3000/ABC123` in a new tab
+   - Enter your name: "Alice"
+   - Enter a summary: "I love React and TypeScript"
+   - Click "Join Session"
+
+2. **Verify you've joined**:
+   - You should see "✓ You've Joined!"
+   - Your name appears in the participants list
+
+3. **Close the tab** (click the X):
+   - Wait a few seconds
+   - Check another tab with the session open
+   - "Alice" should disappear from the participants list (presence detected disconnect)
+
+4. **Reopen the same session** (open `localhost:3000/ABC123` again):
+   - The form should auto-populate with "Alice" and your summary
+   - You'll automatically rejoin as a participant
+   - Your name reappears in the participants list
+
+5. **Try the "Leave and clear saved info" button**:
+   - After joining, click this button
+   - Your saved info is cleared
+   - You can now join as a different person
+
+**Important Notes:**
+
+- This only works for **real users** (not test/generated participants)
+- Generated users (from the seed buttons) are NOT removed on disconnect
+- Your info is saved per session code in browser localStorage
+- If you clear your browser data, saved session info is lost
+
 **Alternative: Command-line script**
 
 You can also add test participants from the terminal:

@@ -25,10 +25,97 @@ export default function SessionPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<string>('waiting');
   const [hostClerkId, setHostClerkId] = useState<string | null>(null);
+  const [myParticipantId, setMyParticipantId] = useState<string | null>(null);
   const supabase = createClient();
 
   // Check if current user is the host
   const isHost = isLoaded && user && user.id === hostClerkId;
+
+  // Load saved participant info from localStorage on mount
+  useEffect(() => {
+    const savedInfo = localStorage.getItem(`session_${code}_info`);
+    if (savedInfo) {
+      try {
+        const { displayName: savedName, summary: savedSummary } =
+          JSON.parse(savedInfo);
+        setDisplayName(savedName || '');
+        setSummary(savedSummary || '');
+      } catch (error) {
+        console.error('Error loading saved info:', error);
+      }
+    }
+  }, [code]);
+
+  // Auto-rejoin if user had previously joined this session
+  useEffect(() => {
+    async function autoRejoin() {
+      if (!sessionId || isHost || hasJoined) return;
+
+      const savedInfo = localStorage.getItem(`session_${code}_info`);
+      if (!savedInfo) return;
+
+      try {
+        const {
+          displayName: savedName,
+          summary: savedSummary,
+          participantId,
+        } = JSON.parse(savedInfo);
+
+        // Check if this participant still exists in the session
+        const { data: existingParticipant } = await supabase
+          .from('participants')
+          .select('id')
+          .eq('id', participantId)
+          .single();
+
+        // If participant doesn't exist, automatically rejoin
+        if (!existingParticipant && savedName && savedSummary) {
+          console.log('Auto-rejoining session with saved info...');
+          setIsJoining(true);
+
+          const response = await fetch('/api/session/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionCode: code.toUpperCase(),
+              displayName: savedName,
+              summary: savedSummary,
+              clerkId: user?.id || null,
+            }),
+          });
+
+          if (response.ok) {
+            setHasJoined(true);
+            const data = await response.json();
+            const newParticipantId = data.participant?.id;
+
+            if (newParticipantId) {
+              setMyParticipantId(newParticipantId);
+              // Update localStorage with new participant ID
+              localStorage.setItem(
+                `session_${code}_info`,
+                JSON.stringify({
+                  displayName: savedName,
+                  summary: savedSummary,
+                  participantId: newParticipantId,
+                }),
+              );
+            }
+          }
+          setIsJoining(false);
+        } else if (existingParticipant) {
+          // Participant still exists, just mark as joined and track their ID
+          setHasJoined(true);
+          setMyParticipantId(participantId);
+        }
+      } catch (error) {
+        console.error('Error auto-rejoining:', error);
+        setIsJoining(false);
+      }
+    }
+
+    autoRejoin();
+  }, [sessionId, isHost, code, hasJoined, user]);
 
   // Fetch session and participants on mount
   useEffect(() => {
@@ -65,7 +152,7 @@ export default function SessionPage() {
     fetchSessionData();
   }, [code]);
 
-  // Set up Realtime subscription for new participants
+  // Set up Realtime subscription for new participants and presence tracking
   useEffect(() => {
     if (!sessionId) return;
 
@@ -113,12 +200,45 @@ export default function SessionPage() {
           );
         },
       )
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = channel.presenceState();
+        console.log('Presence sync:', presenceState);
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        // When a user disconnects, remove their participant record
+        leftPresences.forEach(async (presence: any) => {
+          const participantId = presence.participant_id;
+          if (participantId) {
+            console.log(
+              'User disconnected, removing participant:',
+              participantId,
+            );
+            try {
+              await fetch('/api/session/remove-participant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ participantId }),
+              });
+            } catch (error) {
+              console.error('Error removing participant on disconnect:', error);
+            }
+          }
+        });
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && myParticipantId) {
+          // Track this user's presence with their participant ID
+          await channel.track({
+            participant_id: myParticipantId,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sessionId]);
+  }, [sessionId, myParticipantId]);
 
   const handleJoin = async () => {
     if (!displayName.trim() || !summary.trim()) return;
@@ -138,6 +258,17 @@ export default function SessionPage() {
 
       if (response.ok) {
         setHasJoined(true);
+        const data = await response.json();
+        const participantId = data.participant?.id;
+
+        // Save participant info to localStorage (only for real users, not test users)
+        if (participantId && !displayName.startsWith('Generated')) {
+          setMyParticipantId(participantId);
+          localStorage.setItem(
+            `session_${code}_info`,
+            JSON.stringify({ displayName, summary, participantId }),
+          );
+        }
       } else {
         const error = await response.json();
         console.error('Failed to join:', error);
@@ -315,9 +446,33 @@ export default function SessionPage() {
               <h2 className="text-3xl font-bold text-white mb-6">
                 ✓ You've Joined!
               </h2>
-              <p className="text-gray-200 text-lg">
+              <p className="text-gray-200 text-lg mb-4">
                 Waiting for the host to start grouping...
               </p>
+              <p className="text-gray-400 text-sm mb-4">
+                Your info is saved. If you close this tab and return, you'll
+                automatically rejoin.
+              </p>
+              <button
+                onClick={() => {
+                  localStorage.removeItem(`session_${code}_info`);
+                  setHasJoined(false);
+                  setMyParticipantId(null);
+                  setDisplayName('');
+                  setSummary('');
+                  // Remove from participants
+                  if (myParticipantId) {
+                    fetch('/api/session/remove-participant', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ participantId: myParticipantId }),
+                    });
+                  }
+                }}
+                className="text-sm text-red-400 hover:text-red-300 underline"
+              >
+                Leave and clear saved info
+              </button>
             </div>
           )}
 
