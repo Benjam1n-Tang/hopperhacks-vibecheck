@@ -1,4 +1,10 @@
-import React from 'react';
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/nextjs';
 
 const NavBar = () => {
   return (
@@ -15,33 +21,27 @@ const NavBar = () => {
     >
       <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>VibeCheck</div>
       <div style={{ display: 'flex', gap: '1rem' }}>
-        {/* Clerk Auth Placeholder */}
-        <button
-          style={{
-            background: '#fff',
-            color: '#222',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
-          Sign In / Sign Up
-        </button>
-        <button
-          style={{
-            background: '#ff5252',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
-          Sign Out
-        </button>
+        <SignedOut>
+          <SignInButton />
+          <SignUpButton>
+            <button
+              style={{
+                background: '#6c47ff',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '0.5rem 1rem',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              Sign Up
+            </button>
+          </SignUpButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
       </div>
     </nav>
   );
