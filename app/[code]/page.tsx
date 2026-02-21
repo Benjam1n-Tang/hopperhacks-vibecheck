@@ -23,7 +23,12 @@ export default function SessionPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<string>('waiting');
+  const [hostClerkId, setHostClerkId] = useState<string | null>(null);
   const supabase = createClient();
+
+  // Check if current user is the host
+  const isHost = isLoaded && user && user.id === hostClerkId;
 
   // Fetch session and participants on mount
   useEffect(() => {
@@ -41,6 +46,8 @@ export default function SessionPage() {
       }
 
       setSessionId(session.id);
+      setSessionStatus(session.status);
+      setHostClerkId(session.host_clerk_id);
 
       // Fetch existing participants
       const { data: existingParticipants, error: participantsError } =
@@ -75,6 +82,35 @@ export default function SessionPage() {
         (payload) => {
           console.log('New participant joined:', payload.new);
           setParticipants((prev) => [...prev, payload.new as Participant]);
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sessions',
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          console.log('Session updated:', payload.new);
+          const newSession = payload.new as any;
+          setSessionStatus(newSession.status);
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          console.log('Participant removed:', payload.old);
+          setParticipants((prev) =>
+            prev.filter((p) => p.id !== (payload.old as any).id),
+          );
         },
       )
       .subscribe();
@@ -143,6 +179,82 @@ export default function SessionPage() {
     }
   };
 
+  const handleCloseSession = async () => {
+    try {
+      const response = await fetch('/api/session/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          status: 'done',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to close session:', error);
+        alert('Failed to close session.');
+      }
+    } catch (error) {
+      console.error('Error closing session:', error);
+      alert('An error occurred while closing the session.');
+    }
+  };
+
+  const handleContinueSession = async () => {
+    try {
+      const response = await fetch('/api/session/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          status: 'waiting',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to continue session:', error);
+        alert('Failed to continue session.');
+      }
+    } catch (error) {
+      console.error('Error continuing session:', error);
+      alert('An error occurred while continuing the session.');
+    }
+  };
+
+  const handleResetSession = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to reset? This will remove all participants.',
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/session/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+        }),
+      });
+
+      if (response.ok) {
+        setParticipants([]);
+        setSessionStatus('waiting');
+      } else {
+        const error = await response.json();
+        console.error('Failed to reset session:', error);
+        alert('Failed to reset session.');
+      }
+    } catch (error) {
+      console.error('Error resetting session:', error);
+      alert('An error occurred while resetting the session.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 pt-20 px-4">
       <div className="max-w-6xl mx-auto">
@@ -157,8 +269,8 @@ export default function SessionPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Participant Join Form */}
-          {!hasJoined && (
+          {/* Participant Join Form - Hidden for host */}
+          {!hasJoined && !isHost && (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
               <h2 className="text-3xl font-bold text-white mb-6">
                 Join Session
@@ -232,20 +344,66 @@ export default function SessionPage() {
         </div>
 
         {/* Host Controls (show only to host) */}
-        {isLoaded && user && (
+        {isHost && (
           <div className="mt-8 bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-4">
               Host Controls
             </h2>
-            <div className="flex flex-wrap gap-4">
-              <button className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105">
-                Generate Groups
-              </button>
-              <button className="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-all transform hover:scale-105">
-                Close Session
-              </button>
 
-              {/* Testing Tools */}
+            {/* Session Status Indicator */}
+            <div className="mb-4">
+              <span className="text-gray-300 text-sm">Session Status: </span>
+              <span
+                className={`font-bold ${
+                  sessionStatus === 'waiting'
+                    ? 'text-green-400'
+                    : sessionStatus === 'done'
+                      ? 'text-yellow-400'
+                      : 'text-blue-400'
+                }`}
+              >
+                {sessionStatus === 'waiting'
+                  ? 'Open'
+                  : sessionStatus === 'done'
+                    ? 'Closed'
+                    : sessionStatus.charAt(0).toUpperCase() +
+                      sessionStatus.slice(1)}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              {/* Show Close Session when status is waiting */}
+              {sessionStatus === 'waiting' && (
+                <button
+                  onClick={handleCloseSession}
+                  className="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-all transform hover:scale-105"
+                >
+                  Close Session
+                </button>
+              )}
+
+              {/* Show these buttons when session is closed (done) */}
+              {sessionStatus === 'done' && (
+                <>
+                  <button className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105">
+                    Generate Groups
+                  </button>
+                  <button
+                    onClick={handleResetSession}
+                    className="bg-orange-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-orange-700 transition-all transform hover:scale-105"
+                  >
+                    Reset Session
+                  </button>
+                  <button
+                    onClick={handleContinueSession}
+                    className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+                  >
+                    Continue Session
+                  </button>
+                </>
+              )}
+
+              {/* Testing Tools - Always shown to host */}
               <div className="flex gap-2 ml-auto">
                 <button
                   onClick={() => handleSeedTestParticipants(5)}

@@ -82,6 +82,7 @@ CREATE POLICY "Anyone can view pinned pairs" ON pinned_pairs
 CREATE POLICY "Participants can create pins" ON pinned_pairs
   FOR INSERT WITH CHECK (true);
 
--- Setup Realtime for participants table
--- This enables real-time updates when participants join
+-- Setup Realtime for participants and sessions tables
+-- This enables real-time updates when participants join and session status changes
 ALTER PUBLICATION supabase_realtime ADD TABLE participants;
+ALTER PUBLICATION supabase_realtime ADD TABLE sessions;

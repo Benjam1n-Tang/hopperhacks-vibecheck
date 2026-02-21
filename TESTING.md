@@ -15,15 +15,81 @@ This will create:
 - `users`, `sessions`, `participants`, `pinned_pairs` tables
 - Proper indexes for performance
 - Row Level Security (RLS) policies
-- Realtime subscription for the `participants` table
+- Realtime subscription for the `participants` and `sessions` tables
+
+### Step 1b: Enable Realtime for Sessions (if you already ran the initial schema)
+
+If you already set up the database before, you need to enable Realtime for the sessions table:
+
+1. Go to **SQL Editor**
+2. Run the contents of `supabase-migration-realtime-sessions.sql`
 
 ### Step 2: Enable Realtime (if not already enabled)
 
 1. In Supabase dashboard, go to **Database** → **Replication**
-2. Find the `participants` table
-3. Make sure the toggle is **ON** for Realtime
+2. Find the `participants` and `sessions` tables
+3. Make sure the toggle is **ON** for Realtime for both tables
 
-## 2. Test the Real-time Functionality
+## 2. Session Lifecycle & Host Controls
+
+### Understanding Session States
+
+Sessions have three states:
+
+- **waiting** (Open) - Participants can join
+- **done** (Closed) - No new participants, host can generate groups
+- **grouping** - Groups are being generated/displayed
+
+### Host-Only Features
+
+When you sign in and create a session, you become the **host**. The host has special privileges:
+
+1. **Cannot join as a participant** - The join form is hidden for the host
+2. **Session controls** - Buttons to manage the session lifecycle
+3. **Test tools** - Quick buttons to add test participants
+
+### Session Workflow
+
+**Phase 1: Open Session (Status: waiting)**
+
+- Host creates session and shares the code
+- Participants can join
+- Host sees "Close Session" button
+- Host can add test participants
+
+**Phase 2: Closed Session (Status: done)**
+
+- Host clicks "Close Session"
+- No new participants can join (form is hidden)
+- Host sees three options:
+  - **Generate Groups** - Create AI-powered groupings
+  - **Reset Session** - Delete all participants and reopen
+  - **Continue Session** - Reopen to accept more participants
+
+**Phase 3: Generate Groups (Status: grouping)**
+
+- Host clicks "Generate Groups"
+- AI creates optimal groups based on participant summaries
+- Groups are displayed to all participants in real-time
+
+### Testing the Session Lifecycle
+
+1. **Create a session** as a signed-in host
+2. **Verify you don't see the join form** (host shouldn't join)
+3. **Open another tab** and join as a participant
+4. **Add test participants** using the "+ 10 Test Users" button
+5. **Click "Close Session"** and verify:
+   - Session status changes to "Closed"
+   - Three new buttons appear: Generate Groups, Reset Session, Continue Session
+   - Other tabs are updated in real-time
+6. **Click "Continue Session"** to reopen
+   - Status changes back to "Open"
+   - Participants can join again
+7. **Click "Reset Session"** to clear all participants
+   - All participants are removed
+   - Session reopens automatically
+
+## 3. Test the Real-time Functionality
 
 ### Test Scenario: Multiple Tabs
 
