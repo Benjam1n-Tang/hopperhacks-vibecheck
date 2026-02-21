@@ -5,36 +5,26 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/nextjs';
+import Link from 'next/link';
 
 const NavBar = () => {
   return (
-    <nav
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '1rem 2rem',
-        background: '#222',
-        color: '#fff',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      }}
-    >
-      <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>VibeCheck</div>
-      <div style={{ display: 'flex', gap: '1rem' }}>
+    <nav className="flex items-center justify-between px-8 py-4 bg-gray-900 text-white shadow-md">
+      <Link
+        href="/"
+        className="font-bold text-2xl hover:text-violet-400 transition"
+      >
+        VibeCheck
+      </Link>
+      <div className="flex items-center gap-4">
         <SignedOut>
-          <SignInButton />
+          <SignInButton>
+            <button className="bg-transparent text-white font-semibold px-4 py-2 rounded hover:bg-gray-800 transition hover:cursor-pointer">
+              Sign In
+            </button>
+          </SignInButton>
           <SignUpButton>
-            <button
-              style={{
-                background: '#6c47ff',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '0.5rem 1rem',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-              }}
-            >
+            <button className="bg-violet-600 text-white font-bold px-4 py-2 rounded hover:bg-violet-700 transition hover:cursor-pointer">
               Sign Up
             </button>
           </SignUpButton>
