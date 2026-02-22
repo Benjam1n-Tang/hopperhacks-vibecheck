@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Lightbulb } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -182,10 +184,10 @@ export default function MyGroupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center pb-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your group...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-neutral-600">Loading your group...</p>
         </div>
       </div>
     );
@@ -193,70 +195,75 @@ export default function MyGroupPage() {
 
   if (!myGroup) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center pb-12">
         <div className="text-center">
-          <p className="text-gray-600 text-lg mb-4">
+          <p className="text-neutral-600 text-lg mb-4">
             You haven't been assigned to a group yet.
           </p>
-          <button
+          <Button
             onClick={handleBackToSession}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
+            size="lg"
+            className="font-semibold"
           >
             Back to Session
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-white pt-32 px-4 pb-12">
+      <div className="max-w-[1440px] mx-auto">
         <div className="mb-8">
-          <button
+          <Button
             onClick={handleBackToSession}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition mb-4"
+            variant="outline"
+            size="lg"
+            className="font-semibold mb-6"
           >
-            ← Back to Session
-          </button>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Session
+          </Button>
+          <h1 className="text-5xl font-bold text-neutral-800 mb-2">
             {sessionTitle}
           </h1>
-          <p className="text-gray-600">
-            Session Code: <span className="font-semibold">{code}</span> • You're
+          <p className="text-neutral-600 text-lg">
+            Session Code:{' '}
+            <span className="font-semibold text-primary">{code}</span> • You're
             in{' '}
-            <span className="font-semibold text-purple-600">
+            <span className="font-semibold text-primary">
               Group {myGroup.group_number}
             </span>
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 mb-6">
-          <h2 className="text-2xl font-bold text-purple-600 mb-6">
+        <div className="rounded-2xl p-8 border-2 border-neutral-200 bg-white mb-6">
+          <h2 className="text-2xl font-bold text-primary mb-6">
             Group {myGroup.group_number} Members
           </h2>
           <div className="space-y-4">
             {myGroup.members.map((member) => (
               <div
                 key={member.id}
-                className={`bg-gray-50 rounded-lg p-4 border-2 transition ${
+                className={`rounded-lg p-4 border-2 transition ${
                   member.id === myParticipantId
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-neutral-200 bg-neutral-50'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="font-semibold text-gray-800 text-lg">
+                  <div className="font-semibold text-neutral-800 text-lg">
                     {member.display_name}
                   </div>
                   {member.id === myParticipantId && (
-                    <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full">
+                    <span className="bg-primary text-white text-xs px-2 py-1 rounded-full">
                       You
                     </span>
                   )}
                 </div>
                 {member.summary && (
-                  <div className="text-sm text-gray-600 mt-2">
+                  <div className="text-sm text-neutral-600 mt-2">
                     {member.summary}
                   </div>
                 )}
@@ -265,28 +272,16 @@ export default function MyGroupPage() {
           </div>
         </div>
 
-        <div className="bg-linear-to-br from-purple-100 to-blue-100 rounded-xl shadow-lg p-8 border border-purple-200">
+        <div className="rounded-2xl p-8 border-2 border-primary/20 bg-primary/5 pb-12">
           <div className="flex items-start gap-3 mb-4">
-            <div className="bg-purple-600 rounded-full p-2 mt-1">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
+            <div className="bg-primary rounded-full p-2 mt-1">
+              <Lightbulb className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
+              <h3 className="text-xl font-bold text-neutral-800 mb-2">
                 Why were you grouped together?
               </h3>
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-neutral-700 leading-relaxed">
                 {myGroup.explanation}
               </p>
             </div>
