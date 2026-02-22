@@ -4,6 +4,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Pencil, Check, X } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -616,71 +619,60 @@ export default function SessionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 pt-20 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-white pt-32 px-4">
+      <div className="max-w-[1440px] mx-auto">
         {/* Session Title and Code Header */}
         <div className="text-center mb-12">
           {/* Session Title */}
           <div className="mb-6">
             {isEditingTitle ? (
               <div className="flex items-center justify-center gap-3">
-                <input
+                <Input
                   type="text"
                   value={editTitleValue}
                   onChange={(e) => setEditTitleValue(e.target.value)}
-                  className="px-4 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 text-2xl font-bold text-center max-w-md"
+                  className="px-4 py-8 text-4xl font-bold text-center max-w-2xl"
                   placeholder="Enter session title"
                   autoFocus
                 />
-                <button
-                  onClick={handleSaveTitle}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
-                  ✓ Save
-                </button>
-                <button
+                <Button onClick={handleSaveTitle} size="lg" className="px-6">
+                  <Check className="w-5 h-5 mr-2" />
+                  Save
+                </Button>
+                <Button
                   onClick={handleCancelEditTitle}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                  variant="destructive"
+                  size="lg"
+                  className="px-6"
                 >
-                  ✕ Cancel
-                </button>
+                  <X className="w-5 h-5 mr-2" />
+                  Cancel
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-3">
-                <h2 className="text-4xl font-bold text-white">
+                <h1 className="text-6xl font-bold text-neutral-800">
                   {sessionTitle}
-                </h2>
+                </h1>
                 {isHost && (
-                  <button
+                  <Button
                     onClick={handleEditTitle}
-                    className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+                    variant="ghost"
+                    size="icon"
                     title="Edit session title"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                      />
-                    </svg>
-                  </button>
+                    <Pencil className="w-5 h-5" />
+                  </Button>
                 )}
               </div>
             )}
           </div>
 
           {/* Session Code */}
-          <h1 className="text-6xl font-bold text-white mb-4">
-            Session Code: <span className="text-yellow-400">{code}</span>
-          </h1>
-          <p className="text-gray-300 text-lg">
+          <h2 className="text-3xl font-bold text-neutral-800 mb-4">
+            Session Code: <span className="text-primary">{code}</span>
+          </h2>
+          <p className="text-neutral-600 text-lg">
             Share this code with others to join the session
           </p>
         </div>
@@ -688,76 +680,206 @@ export default function SessionPage() {
         {/* Groups Generated - Show navigation buttons */}
         {sessionStatus === 'grouping' && groupsData && (
           <div className="max-w-2xl mx-auto mb-12">
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center">
+            <div className="rounded-2xl p-8 border-2 border-neutral-200 text-center bg-white">
               <div className="text-5xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl font-bold text-neutral-800 mb-4">
                 Groups Have Been Generated!
               </h2>
-              <p className="text-gray-300 mb-6">
+              <p className="text-neutral-600 mb-6">
                 {isHost
                   ? 'View all the groups that were created'
                   : "Check out your group assignment and see who you're matched with"}
               </p>
-              <button
+              <Button
                 onClick={() =>
                   router.push(`/${code}/${isHost ? 'groups' : 'my-group'}`)
                 }
-                className="bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold px-8 py-4 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105"
+                size="lg"
+                className="font-bold px-8"
               >
                 {isHost ? 'View All Groups' : 'View My Group'} →
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {sessionStatus !== 'grouping' && (
           <div className="grid md:grid-cols-2 gap-8">
+            {/* Host Controls (show only to host on the left) */}
+            {isHost && (
+              <div className="rounded-2xl p-8 border-2 border-neutral-200 flex flex-col">
+                <h2 className="text-3xl font-bold text-neutral-800 mb-6">
+                  Host Controls
+                </h2>
+
+                {/* Session Status Indicator */}
+                <div className="mb-6">
+                  <span className="text-neutral-600 text-sm">
+                    Session Status:{' '}
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      sessionStatus === 'waiting'
+                        ? 'text-green-600'
+                        : sessionStatus === 'done'
+                          ? 'text-yellow-600'
+                          : 'text-blue-600'
+                    }`}
+                  >
+                    {sessionStatus === 'waiting'
+                      ? 'Open'
+                      : sessionStatus === 'done'
+                        ? 'Closed'
+                        : sessionStatus.charAt(0).toUpperCase() +
+                          sessionStatus.slice(1)}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-4 flex-1">
+                  {/* Show Close Session when status is waiting */}
+                  {sessionStatus === 'waiting' && (
+                    <Button
+                      onClick={handleCloseSession}
+                      variant="destructive"
+                      size="lg"
+                      className="font-semibold w-full"
+                    >
+                      Close Session
+                    </Button>
+                  )}
+
+                  {/* Show these buttons when session is closed (done) */}
+                  {sessionStatus === 'done' && (
+                    <>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                          <label className="text-neutral-800 text-sm font-semibold whitespace-nowrap">
+                            Group Size:
+                          </label>
+                          <Input
+                            type="number"
+                            min="2"
+                            max="10"
+                            value={groupSize}
+                            onChange={(e) =>
+                              setGroupSize(parseInt(e.target.value) || 3)
+                            }
+                            className="w-20 text-center font-bold"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleGenerateGroups}
+                          disabled={isGeneratingGroups}
+                          size="lg"
+                          className="font-semibold bg-green-600 hover:bg-green-700 w-full"
+                        >
+                          {isGeneratingGroups
+                            ? 'Generating...'
+                            : 'Generate Groups'}
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={handleResetSession}
+                        size="lg"
+                        className="font-semibold bg-orange-600 hover:bg-orange-700 w-full"
+                      >
+                        Reset Session
+                      </Button>
+                      <Button
+                        onClick={handleContinueSession}
+                        size="lg"
+                        className="font-semibold bg-blue-600 hover:bg-blue-700 w-full"
+                      >
+                        Continue Session
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Testing Tools - Always shown to host */}
+                  <div className="mt-auto pt-6 border-t border-neutral-200">
+                    <p className="text-neutral-500 text-xs mb-3">
+                      Testing Tools:
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={() => handleSeedTestParticipants(5)}
+                        disabled={isSeeding}
+                        size="sm"
+                        variant="outline"
+                        className="font-semibold w-full"
+                      >
+                        {isSeeding ? 'Adding...' : '+ 5 Test Users'}
+                      </Button>
+                      <Button
+                        onClick={() => handleSeedTestParticipants(10)}
+                        disabled={isSeeding}
+                        size="sm"
+                        variant="outline"
+                        className="font-semibold w-full"
+                      >
+                        {isSeeding ? 'Adding...' : '+ 10 Test Users'}
+                      </Button>
+                      <Button
+                        onClick={() => handleSeedTestParticipants(20)}
+                        disabled={isSeeding}
+                        size="sm"
+                        variant="outline"
+                        className="font-bold w-full"
+                      >
+                        {isSeeding ? 'Adding...' : '+ 20 Test Users'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Participant Join Form - Hidden for host */}
             {!hasJoined && !isHost && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-                <h2 className="text-3xl font-bold text-white mb-6">
+              <div className="rounded-2xl p-8 border-2 border-neutral-200">
+                <h2 className="text-3xl font-bold text-neutral-800 mb-6">
                   Join Session
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-white mb-2 font-semibold">
+                    <label className="block text-neutral-800 mb-2 font-semibold">
                       Display Name
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500"
                       placeholder="Enter your name"
+                      className="font-medium"
                     />
                   </div>
                   <div>
-                    <label className="block text-white mb-2 font-semibold">
+                    <label className="block text-neutral-800 mb-2 font-semibold">
                       About You
                     </label>
                     <textarea
                       value={summary}
                       onChange={(e) => setSummary(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 h-32 resize-none"
+                      className="flex min-h-30 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-medium"
                       placeholder="Tell us about your interests, personality, or what you're looking for..."
                     />
                   </div>
                   {participants.length > 0 && (
                     <div>
-                      <label className="block text-white mb-2 font-semibold">
+                      <label className="block text-neutral-800 mb-2 font-semibold">
                         Want to pair with someone? (Optional)
                       </label>
-                      <p className="text-gray-300 text-sm mb-2">
+                      <p className="text-neutral-600 text-sm mb-2">
                         Select people you'd like to be grouped with. The AI will
                         try to keep you together!
                       </p>
-                      <div className="space-y-2 max-h-40 overflow-y-auto bg-white/10 rounded-lg p-3 border border-white/20">
+                      <div className="space-y-2 max-h-40 overflow-y-auto bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                         {participants
                           .filter((p) => p.display_name !== displayName)
                           .map((participant) => (
                             <label
                               key={participant.id}
-                              className="flex items-center gap-3 text-white hover:bg-white/10 p-2 rounded cursor-pointer transition-colors"
+                              className="flex items-center gap-3 text-neutral-800 hover:bg-neutral-100 p-2 rounded cursor-pointer transition-colors"
                             >
                               <input
                                 type="checkbox"
@@ -787,7 +909,7 @@ export default function SessionPage() {
                                     }
                                   }
                                 }}
-                                className="w-4 h-4 accent-violet-500"
+                                className="w-4 h-4 accent-primary"
                               />
                               <span className="text-sm">
                                 {participant.display_name}
@@ -796,33 +918,34 @@ export default function SessionPage() {
                           ))}
                       </div>
                       {pairingWarning && (
-                        <p className="text-yellow-400 text-xs mt-2 flex items-start gap-1">
+                        <p className="text-yellow-600 text-xs mt-2 flex items-start gap-1">
                           <span>⚠️</span>
                           <span>{pairingWarning}</span>
                         </p>
                       )}
                     </div>
                   )}
-                  <button
+                  <Button
                     onClick={handleJoin}
                     disabled={isJoining}
-                    className="w-full bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    size="lg"
+                    className="w-full font-bold"
                   >
                     {isJoining ? 'Joining...' : 'Join Session'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
 
             {hasJoined && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-                <h2 className="text-3xl font-bold text-white mb-6">
+              <div className="rounded-2xl p-8 border-2 border-neutral-200">
+                <h2 className="text-3xl font-bold text-neutral-800 mb-6">
                   ✓ You've Joined!
                 </h2>
-                <p className="text-gray-200 text-lg mb-4">
+                <p className="text-neutral-600 text-lg mb-4">
                   Waiting for the host to start grouping...
                 </p>
-                <p className="text-gray-400 text-sm mb-4">
+                <p className="text-neutral-500 text-sm mb-4">
                   Your info is saved. If you close this tab and return, you'll
                   automatically rejoin.
                 </p>
@@ -830,19 +953,19 @@ export default function SessionPage() {
                 {/* Pairing preferences for already joined participants */}
                 {participants.length > 1 && (
                   <div className="mb-6">
-                    <label className="block text-white mb-2 font-semibold">
+                    <label className="block text-neutral-800 mb-2 font-semibold">
                       Want to pair with someone?
                     </label>
-                    <p className="text-gray-300 text-sm mb-3">
+                    <p className="text-neutral-600 text-sm mb-3">
                       Select people you'd like to be grouped with:
                     </p>
-                    <div className="space-y-2 max-h-48 overflow-y-auto bg-white/10 rounded-lg p-3 border border-white/20">
+                    <div className="space-y-2 max-h-48 overflow-y-auto bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                       {participants
                         .filter((p) => p.id !== myParticipantId)
                         .map((participant) => (
                           <label
                             key={participant.id}
-                            className="flex items-center gap-3 text-white hover:bg-white/10 p-2 rounded cursor-pointer transition-colors"
+                            className="flex items-center gap-3 text-neutral-800 hover:bg-neutral-100 p-2 rounded cursor-pointer transition-colors"
                           >
                             <input
                               type="checkbox"
@@ -878,7 +1001,7 @@ export default function SessionPage() {
                                   );
                                 }
                               }}
-                              className="w-4 h-4 accent-violet-500"
+                              className="w-4 h-4 accent-primary"
                             />
                             <span className="text-sm">
                               {participant.display_name}
@@ -887,13 +1010,13 @@ export default function SessionPage() {
                         ))}
                     </div>
                     {pairingWarning && (
-                      <p className="text-yellow-400 text-xs mt-2 flex items-start gap-1">
+                      <p className="text-yellow-600 text-xs mt-2 flex items-start gap-1">
                         <span>⚠️</span>
                         <span>{pairingWarning}</span>
                       </p>
                     )}
                     {selectedPairings.length > 0 && !pairingWarning && (
-                      <p className="text-green-400 text-xs mt-2">
+                      <p className="text-green-600 text-xs mt-2">
                         ✓ Preferences saved! The AI will try to group you
                         together.
                       </p>
@@ -901,7 +1024,7 @@ export default function SessionPage() {
                   </div>
                 )}
 
-                <button
+                <Button
                   onClick={() => {
                     localStorage.removeItem(`session_${code}_info`);
                     setHasJoined(false);
@@ -919,26 +1042,30 @@ export default function SessionPage() {
                       });
                     }
                   }}
-                  className="text-sm text-red-400 hover:text-red-300 underline"
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   Leave and clear saved info
-                </button>
+                </Button>
               </div>
             )}
 
             {/* Participants List */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-              <h2 className="text-3xl font-bold text-white mb-6">
+            <div className="rounded-2xl p-8 border-2 border-neutral-200">
+              <h2 className="text-3xl font-bold text-neutral-800 mb-6">
                 Participants ({participants.length})
               </h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {participants.length === 0 ? (
-                  <p className="text-gray-300 italic">No participants yet...</p>
+                  <p className="text-neutral-500 italic">
+                    No participants yet...
+                  </p>
                 ) : (
                   participants.map((participant) => (
                     <div
                       key={participant.id}
-                      className="bg-white/20 rounded-lg px-4 py-3 text-white font-semibold animate-fade-in"
+                      className="bg-neutral-100 rounded-lg px-4 py-3 text-neutral-800 font-semibold animate-fade-in hover:bg-neutral-200 transition-colors"
                     >
                       {participant.display_name}
                     </div>
@@ -952,146 +1079,37 @@ export default function SessionPage() {
         {/* Loading screen for all users during group generation */}
         {sessionStatus === 'grouping' && !groupsData && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-12 border border-white/20 text-center">
+            <div className="rounded-2xl p-12 border-2 border-neutral-200 text-center bg-white">
               <div className="flex justify-center mb-6">
                 <div className="relative">
-                  <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-t-4 border-violet-500"></div>
+                  <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-t-4 border-primary"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="animate-pulse text-4xl">🎲</div>
                   </div>
                 </div>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl font-bold text-neutral-800 mb-4">
                 Generating Groups...
               </h2>
-              <p className="text-gray-300 text-lg mb-2">
+              <p className="text-neutral-600 text-lg mb-2">
                 Our AI is analyzing personalities and interests
               </p>
-              <p className="text-gray-400 text-sm">
+              <p className="text-neutral-500 text-sm">
                 This may take a few moments
               </p>
               <div className="mt-8 flex justify-center gap-2">
                 <div
-                  className="w-3 h-3 bg-violet-500 rounded-full animate-bounce"
+                  className="w-3 h-3 bg-primary rounded-full animate-bounce"
                   style={{ animationDelay: '0ms' }}
                 ></div>
                 <div
-                  className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
+                  className="w-3 h-3 bg-primary/80 rounded-full animate-bounce"
                   style={{ animationDelay: '150ms' }}
                 ></div>
                 <div
-                  className="w-3 h-3 bg-pink-500 rounded-full animate-bounce"
+                  className="w-3 h-3 bg-primary/60 rounded-full animate-bounce"
                   style={{ animationDelay: '300ms' }}
                 ></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Host Controls (show only to host) */}
-        {isHost && (
-          <div className="mt-8 bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Host Controls
-            </h2>
-
-            {/* Session Status Indicator */}
-            <div className="mb-4">
-              <span className="text-gray-300 text-sm">Session Status: </span>
-              <span
-                className={`font-bold ${
-                  sessionStatus === 'waiting'
-                    ? 'text-green-400'
-                    : sessionStatus === 'done'
-                      ? 'text-yellow-400'
-                      : 'text-blue-400'
-                }`}
-              >
-                {sessionStatus === 'waiting'
-                  ? 'Open'
-                  : sessionStatus === 'done'
-                    ? 'Closed'
-                    : sessionStatus.charAt(0).toUpperCase() +
-                      sessionStatus.slice(1)}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-4">
-              {/* Show Close Session when status is waiting */}
-              {sessionStatus === 'waiting' && (
-                <button
-                  onClick={handleCloseSession}
-                  className="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-all transform hover:scale-105"
-                >
-                  Close Session
-                </button>
-              )}
-
-              {/* Show these buttons when session is closed (done) */}
-              {sessionStatus === 'done' && (
-                <>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleGenerateGroups}
-                      disabled={isGeneratingGroups}
-                      className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isGeneratingGroups ? 'Generating...' : 'Generate Groups'}
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <label className="text-white text-sm font-semibold">
-                        Group Size:
-                      </label>
-                      <input
-                        type="number"
-                        min="2"
-                        max="10"
-                        value={groupSize}
-                        onChange={(e) =>
-                          setGroupSize(parseInt(e.target.value) || 3)
-                        }
-                        className="w-16 px-3 py-2 rounded-lg bg-white/20 text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleResetSession}
-                    className="bg-orange-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-orange-700 transition-all transform hover:scale-105"
-                  >
-                    Reset Session
-                  </button>
-                  <button
-                    onClick={handleContinueSession}
-                    className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
-                  >
-                    Continue Session
-                  </button>
-                </>
-              )}
-
-              {/* Testing Tools - Always shown to host */}
-              <div className="flex gap-2 ml-auto">
-                <button
-                  onClick={() => handleSeedTestParticipants(5)}
-                  disabled={isSeeding}
-                  className="bg-blue-600 text-white font-semibold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {isSeeding ? 'Adding...' : '+ 5 Test Users'}
-                </button>
-                <button
-                  onClick={() => handleSeedTestParticipants(10)}
-                  disabled={isSeeding}
-                  className="bg-blue-600 text-white font-semibold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {isSeeding ? 'Adding...' : '+ 10 Test Users'}
-                </button>
-                <button
-                  onClick={() => handleSeedTestParticipants(20)}
-                  disabled={isSeeding}
-                  className="bg-blue-600 text-white font-bold px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {isSeeding ? 'Adding...' : '+ 20 Test Users'}
-                </button>
               </div>
             </div>
           </div>
