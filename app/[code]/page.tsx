@@ -32,6 +32,9 @@ export default function SessionPage() {
   const [groupsData, setGroupsData] = useState<any>(null);
   const [selectedPairings, setSelectedPairings] = useState<string[]>([]);
   const [pairingWarning, setPairingWarning] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string>('Untitled Session');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState<string>('');
   const supabase = createClient();
 
   // Check if current user is the host
@@ -214,7 +217,7 @@ export default function SessionPage() {
       // Get session by code
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, status, host_clerk_id, groups_data')
+        .select('id, status, host_clerk_id, groups_data, title')
         .eq('code', code.toUpperCase())
         .single();
 
@@ -227,6 +230,7 @@ export default function SessionPage() {
       setSessionStatus(session.status);
       setHostClerkId(session.host_clerk_id);
       setGroupsData(session.groups_data);
+      setSessionTitle(session.title || 'Untitled Session');
 
       // Fetch existing participants
       const { data: existingParticipants, error: participantsError } =
@@ -277,6 +281,9 @@ export default function SessionPage() {
           setSessionStatus(newSession.status);
           if (newSession.groups_data) {
             setGroupsData(newSession.groups_data);
+          }
+          if (newSession.title) {
+            setSessionTitle(newSession.title);
           }
         },
       )
@@ -455,6 +462,46 @@ export default function SessionPage() {
     }
   };
 
+  const handleEditTitle = () => {
+    setEditTitleValue(sessionTitle);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editTitleValue.trim()) {
+      alert('Title cannot be empty');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/session/update-title', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          title: editTitleValue.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setSessionTitle(editTitleValue.trim());
+        setIsEditingTitle(false);
+      } else {
+        const error = await response.json();
+        console.error('Failed to update title:', error);
+        alert('Failed to update title.');
+      }
+    } catch (error) {
+      console.error('Error updating title:', error);
+      alert('An error occurred while updating the title.');
+    }
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditingTitle(false);
+    setEditTitleValue('');
+  };
+
   const handleCloseSession = async () => {
     try {
       const response = await fetch('/api/session/update-status', {
@@ -569,8 +616,65 @@ export default function SessionPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 pt-20 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Session Code Header */}
+        {/* Session Title and Code Header */}
         <div className="text-center mb-12">
+          {/* Session Title */}
+          <div className="mb-6">
+            {isEditingTitle ? (
+              <div className="flex items-center justify-center gap-3">
+                <input
+                  type="text"
+                  value={editTitleValue}
+                  onChange={(e) => setEditTitleValue(e.target.value)}
+                  className="px-4 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 text-2xl font-bold text-center max-w-md"
+                  placeholder="Enter session title"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveTitle}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  ✓ Save
+                </button>
+                <button
+                  onClick={handleCancelEditTitle}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-3">
+                <h2 className="text-4xl font-bold text-white">
+                  {sessionTitle}
+                </h2>
+                {isHost && (
+                  <button
+                    onClick={handleEditTitle}
+                    className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+                    title="Edit session title"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Session Code */}
           <h1 className="text-6xl font-bold text-white mb-4">
             Session Code: <span className="text-yellow-400">{code}</span>
           </h1>

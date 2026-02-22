@@ -28,6 +28,7 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [isHost, setIsHost] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string>('Untitled Session');
   const supabase = createClient();
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function GroupsPage() {
   const loadSession = async () => {
     const { data: session, error } = await supabase
       .from('sessions')
-      .select('id, host_clerk_id, status, groups_data')
+      .select('id, host_clerk_id, status, groups_data, title')
       .eq('code', code)
       .single();
 
@@ -75,6 +76,7 @@ export default function GroupsPage() {
     }
 
     setSessionId(session.id);
+    setSessionTitle(session.title || 'Untitled Session');
 
     // Check if current user is the host
     if (user && session.host_clerk_id === user.id) {
@@ -96,7 +98,7 @@ export default function GroupsPage() {
     // Fetch groups from sessions.groups_data JSON column
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('groups_data')
+      .select('groups_data, title')
       .eq('id', sessionId)
       .single();
 
@@ -108,6 +110,9 @@ export default function GroupsPage() {
 
     if (session?.groups_data) {
       setGroups(session.groups_data);
+    }
+    if (session?.title) {
+      setSessionTitle(session.title);
     }
     setLoading(false);
   };
@@ -144,7 +149,7 @@ export default function GroupsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading groups...</p>
@@ -158,14 +163,15 @@ export default function GroupsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 p-8">
+    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold text-gray-800 mb-2">
-              All Groups - {code}
+              {sessionTitle}
             </h1>
             <p className="text-gray-600">
+              Session Code: <span className="font-semibold">{code}</span> •{' '}
               {groups.length} {groups.length === 1 ? 'group' : 'groups'} formed
             </p>
           </div>

@@ -11,6 +11,7 @@ interface Participant {
 
 interface Group {
   id: number;
+  group_number: number;
   members: Participant[];
   explanation?: string;
 }
@@ -224,38 +225,53 @@ function balanceGroups(
 ): Group[] {
   const totalParticipants = participants.length;
 
-  // Calculate optimal number of groups
-  let numGroups = Math.ceil(totalParticipants / groupSize);
-
-  // Check if this creates an imbalanced group
-  const remainder = totalParticipants % groupSize;
-
-  // If remainder is 1 and we have more than 1 group, redistribute
-  if (remainder === 1 && numGroups > 1) {
-    // Reduce group size by 1 to better balance
-    numGroups = Math.ceil(totalParticipants / (groupSize - 1));
+  if (totalParticipants === 0) {
+    return [];
   }
 
-  // Calculate members per group
-  const baseSize = Math.floor(totalParticipants / numGroups);
-  const extraMembers = totalParticipants % numGroups;
+  const fullGroups = Math.floor(totalParticipants / groupSize);
+  const remainder = totalParticipants % groupSize;
 
+  let groupSizes: number[] = [];
+
+  if (remainder === 0) {
+    // Perfect division - all groups have target size
+    groupSizes = Array(fullGroups).fill(groupSize);
+  } else if (remainder === 1 && fullGroups >= 1) {
+    // Avoid a group of 1 by taking one full group and combining with remainder
+    // Then split those people into 2 groups
+    const combinedPeople = groupSize + 1;
+    const splitSize1 = Math.floor(combinedPeople / 2);
+    const splitSize2 = Math.ceil(combinedPeople / 2);
+
+    // (fullGroups - 1) groups of target size + 2 groups from the split
+    groupSizes = [
+      ...Array(fullGroups - 1).fill(groupSize),
+      splitSize1,
+      splitSize2,
+    ];
+  } else {
+    // Other remainders: fullGroups of target size + 1 group with remainder
+    groupSizes = [...Array(fullGroups).fill(groupSize), remainder];
+  }
+
+  // Create groups from the calculated sizes
   const groups: Group[] = [];
   let participantIndex = 0;
 
-  for (let i = 0; i < numGroups; i++) {
-    const currentGroupSize = baseSize + (i < extraMembers ? 1 : 0);
+  for (let i = 0; i < groupSizes.length; i++) {
     const groupMembers = participants.slice(
       participantIndex,
-      participantIndex + currentGroupSize,
+      participantIndex + groupSizes[i],
     );
 
     groups.push({
       id: i + 1,
+      group_number: i + 1,
       members: groupMembers,
     });
 
-    participantIndex += currentGroupSize;
+    participantIndex += groupSizes[i];
   }
 
   return groups;
