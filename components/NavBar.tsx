@@ -1,5 +1,6 @@
 'use client';
 
+import { logo } from '@/app/assets';
 import {
   SignInButton,
   SignUpButton,
@@ -7,6 +8,7 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/nextjs';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -37,11 +39,20 @@ const NavBar = () => {
 
   return (
     <nav className="flex items-center justify-between px-8 py-4 bg-white text-black shadow-md fixed top-0 z-50 w-full">
-      <Link
-        href="/"
-        className="font-bold text-3xl hover:text-violet-400 transition"
-      >
-        VibeCheck
+      <Link href="/" className="flex gap-2 flex-row items-center ">
+        <Image
+          src={logo}
+          alt="VibeCheck Logo"
+          width={40}
+          height={40}
+          className="inline mr-2"
+        />
+        <h4
+          className="text-primary text-[28px]"
+          style={{ fontFamily: 'var(--font-anton)' }}
+        >
+          Vibe Check
+        </h4>
       </Link>
       <div className="flex items-center gap-4">
         <SignedOut>
