@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -149,10 +151,10 @@ export default function GroupsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading groups...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-neutral-600">Loading groups...</p>
         </div>
       </div>
     );
@@ -163,37 +165,44 @@ export default function GroupsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex justify-between items-center">
+    <div className="min-h-screen bg-white pt-32 px-4 pb-12">
+      <div className="max-w-360 mx-auto">
+        <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+            <h1 className="text-5xl font-bold text-neutral-800 mb-2">
               {sessionTitle}
             </h1>
-            <p className="text-gray-600">
-              Session Code: <span className="font-semibold">{code}</span> •{' '}
+            <p className="text-neutral-600 text-lg">
+              Session Code:{' '}
+              <span className="font-semibold text-primary">{code}</span> •{' '}
               {groups.length} {groups.length === 1 ? 'group' : 'groups'} formed
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
               onClick={handleBackToSession}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+              variant="outline"
+              size="lg"
+              className="font-semibold"
             >
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Session
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleResetSession}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
+              variant="destructive"
+              size="lg"
+              className="font-semibold"
             >
+              <RotateCcw className="w-4 h-4 mr-2" />
               Reset Session
-            </button>
+            </Button>
           </div>
         </div>
 
         {groups.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
+            <p className="text-neutral-500 text-lg">
               No groups have been generated yet.
             </p>
           </div>
@@ -202,30 +211,30 @@ export default function GroupsPage() {
             {groups.map((group) => (
               <div
                 key={group.id}
-                className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition"
+                className="rounded-2xl p-6 border-2 border-neutral-200 hover:border-neutral-300 transition-all bg-white"
               >
-                <h2 className="text-2xl font-bold text-purple-600 mb-4">
+                <h2 className="text-2xl font-bold text-primary mb-4">
                   Group {group.group_number}
                 </h2>
                 <div className="space-y-3">
                   {group.members.map((member) => (
                     <div
                       key={member.id}
-                      className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                      className="bg-neutral-50 rounded-lg p-3 border border-neutral-200"
                     >
-                      <div className="font-semibold text-gray-800">
+                      <div className="font-semibold text-neutral-800">
                         {member.display_name}
                       </div>
                       {member.summary && (
-                        <div className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        <div className="text-sm text-neutral-600 mt-1 line-clamp-2">
                           {member.summary}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500">
+                <div className="mt-4 pt-4 border-t border-neutral-200">
+                  <p className="text-sm text-neutral-500">
                     {group.members.length}{' '}
                     {group.members.length === 1 ? 'member' : 'members'}
                   </p>

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, Sparkles, PartyPopper } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -619,8 +619,8 @@ export default function SessionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pt-32 px-4">
-      <div className="max-w-[1440px] mx-auto">
+    <div className="min-h-screen bg-white pt-32 px-4 pb-12">
+      <div className="max-w-360 mx-auto">
         {/* Session Title and Code Header */}
         <div className="text-center mb-12">
           {/* Session Title */}
@@ -681,7 +681,11 @@ export default function SessionPage() {
         {sessionStatus === 'grouping' && groupsData && (
           <div className="max-w-2xl mx-auto mb-12">
             <div className="rounded-2xl p-8 border-2 border-neutral-200 text-center bg-white">
-              <div className="text-5xl mb-4">🎉</div>
+              <div className="flex justify-center mb-4">
+                <div className="bg-primary/10 rounded-full p-4">
+                  <PartyPopper className="w-12 h-12 text-primary" />
+                </div>
+              </div>
               <h2 className="text-3xl font-bold text-neutral-800 mb-4">
                 Groups Have Been Generated!
               </h2>
@@ -1084,7 +1088,7 @@ export default function SessionPage() {
                 <div className="relative">
                   <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-t-4 border-primary"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="animate-pulse text-4xl">🎲</div>
+                    <Sparkles className="w-10 h-10 text-primary animate-pulse" />
                   </div>
                 </div>
               </div>
