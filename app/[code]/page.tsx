@@ -70,21 +70,48 @@ export default function SessionPage() {
     return dfs(participantId);
   };
 
-  // Load saved participant info from localStorage on mount
+  // Load saved participant info from localStorage and user profile on mount
   useEffect(() => {
-    const savedInfo = localStorage.getItem(`session_${code}_info`);
-    if (savedInfo) {
-      try {
-        const parsedInfo = JSON.parse(savedInfo);
-        const savedName = parsedInfo.displayName || parsedInfo.display_name;
-        const savedSummary = parsedInfo.summary;
-        setDisplayName(savedName || '');
-        setSummary(savedSummary || '');
-      } catch (error) {
-        console.error('Error loading saved info:', error);
+    async function loadSavedInfo() {
+      // First try to load from localStorage (session-specific)
+      const savedInfo = localStorage.getItem(`session_${code}_info`);
+      if (savedInfo) {
+        try {
+          const parsedInfo = JSON.parse(savedInfo);
+          const savedName = parsedInfo.displayName || parsedInfo.display_name;
+          const savedSummary = parsedInfo.summary;
+          setDisplayName(savedName || '');
+          setSummary(savedSummary || '');
+          return; // If we have session-specific info, use it
+        } catch (error) {
+          console.error('Error loading saved info:', error);
+        }
+      }
+
+      // If no session-specific info and user is logged in, load from profile
+      if (isLoaded && user) {
+        try {
+          const response = await fetch('/api/user/profile');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user?.saved_summary) {
+              setSummary(data.user.saved_summary);
+            }
+            // Try to use Clerk's display name if available
+            if (user.fullName) {
+              setDisplayName(user.fullName);
+            } else if (user.firstName) {
+              setDisplayName(user.firstName);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
       }
     }
-  }, [code]);
+
+    loadSavedInfo();
+  }, [code, isLoaded, user]);
 
   // Load pairing preferences for this participant
   useEffect(() => {
@@ -345,6 +372,27 @@ export default function SessionPage() {
           // Save pairing preferences if any selected
           if (selectedPairings.length > 0) {
             await savePairingPreferences(participantId, selectedPairings);
+          }
+
+          // Save summary to user profile if logged in and they don't have one saved
+          if (user) {
+            try {
+              const profileResponse = await fetch('/api/user/profile');
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                // Only save if user doesn't have a saved summary yet
+                if (!profileData.user?.saved_summary) {
+                  await fetch('/api/user/profile', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saved_summary: summary }),
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error saving summary to profile:', error);
+              // Don't fail the join if profile save fails
+            }
           }
         }
       } else {
