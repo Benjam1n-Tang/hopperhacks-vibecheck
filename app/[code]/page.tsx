@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -14,6 +14,7 @@ interface Participant {
 
 export default function SessionPage() {
   const params = useParams();
+  const router = useRouter();
   const { user, isLoaded } = useUser();
   const code = params.code as string;
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -26,6 +27,9 @@ export default function SessionPage() {
   const [sessionStatus, setSessionStatus] = useState<string>('waiting');
   const [hostClerkId, setHostClerkId] = useState<string | null>(null);
   const [myParticipantId, setMyParticipantId] = useState<string | null>(null);
+  const [groupSize, setGroupSize] = useState<number>(3);
+  const [isGeneratingGroups, setIsGeneratingGroups] = useState(false);
+  const [groupsData, setGroupsData] = useState<any>(null);
   const supabase = createClient();
 
   // Check if current user is the host
@@ -36,8 +40,9 @@ export default function SessionPage() {
     const savedInfo = localStorage.getItem(`session_${code}_info`);
     if (savedInfo) {
       try {
-        const { displayName: savedName, summary: savedSummary } =
-          JSON.parse(savedInfo);
+        const parsedInfo = JSON.parse(savedInfo);
+        const savedName = parsedInfo.displayName || parsedInfo.display_name;
+        const savedSummary = parsedInfo.summary;
         setDisplayName(savedName || '');
         setSummary(savedSummary || '');
       } catch (error) {
@@ -55,11 +60,10 @@ export default function SessionPage() {
       if (!savedInfo) return;
 
       try {
-        const {
-          displayName: savedName,
-          summary: savedSummary,
-          participantId,
-        } = JSON.parse(savedInfo);
+        const parsedInfo = JSON.parse(savedInfo);
+        const savedName = parsedInfo.displayName || parsedInfo.display_name;
+        const savedSummary = parsedInfo.summary;
+        const participantId = parsedInfo.participantId;
 
         // Check if this participant still exists in the session
         const { data: existingParticipant } = await supabase
@@ -95,6 +99,7 @@ export default function SessionPage() {
               localStorage.setItem(
                 `session_${code}_info`,
                 JSON.stringify({
+                  display_name: savedName,
                   displayName: savedName,
                   summary: savedSummary,
                   participantId: newParticipantId,
@@ -123,7 +128,7 @@ export default function SessionPage() {
       // Get session by code
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, status, host_clerk_id')
+        .select('id, status, host_clerk_id, groups_data')
         .eq('code', code.toUpperCase())
         .single();
 
@@ -135,6 +140,7 @@ export default function SessionPage() {
       setSessionId(session.id);
       setSessionStatus(session.status);
       setHostClerkId(session.host_clerk_id);
+      setGroupsData(session.groups_data);
 
       // Fetch existing participants
       const { data: existingParticipants, error: participantsError } =
@@ -183,6 +189,9 @@ export default function SessionPage() {
           console.log('Session updated:', payload.new);
           const newSession = payload.new as any;
           setSessionStatus(newSession.status);
+          if (newSession.groups_data) {
+            setGroupsData(newSession.groups_data);
+          }
         },
       )
       .on(
@@ -266,7 +275,12 @@ export default function SessionPage() {
           setMyParticipantId(participantId);
           localStorage.setItem(
             `session_${code}_info`,
-            JSON.stringify({ displayName, summary, participantId }),
+            JSON.stringify({
+              display_name: displayName,
+              displayName: displayName,
+              summary,
+              participantId,
+            }),
           );
         }
       } else {
@@ -386,6 +400,41 @@ export default function SessionPage() {
     }
   };
 
+  const handleGenerateGroups = async () => {
+    if (participants.length === 0) {
+      alert('No participants to group!');
+      return;
+    }
+
+    setIsGeneratingGroups(true);
+    try {
+      const response = await fetch('/api/session/generate-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          groupSize,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Groups generated:', data);
+        // Redirect host to groups page
+        router.push(`/${code}/groups`);
+      } else {
+        const error = await response.json();
+        console.error('Failed to generate groups:', error);
+        alert('Failed to generate groups: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error generating groups:', error);
+      alert('An error occurred while generating groups.');
+    } finally {
+      setIsGeneratingGroups(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 pt-20 px-4">
       <div className="max-w-6xl mx-auto">
@@ -399,104 +448,172 @@ export default function SessionPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Participant Join Form - Hidden for host */}
-          {!hasJoined && !isHost && (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-              <h2 className="text-3xl font-bold text-white mb-6">
-                Join Session
+        {/* Groups Generated - Show navigation buttons */}
+        {sessionStatus === 'grouping' && groupsData && (
+          <div className="max-w-2xl mx-auto mb-12">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center">
+              <div className="text-5xl mb-4">🎉</div>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Groups Have Been Generated!
               </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-white mb-2 font-semibold">
-                    Display Name
-                  </label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Enter your name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white mb-2 font-semibold">
-                    About You
-                  </label>
-                  <textarea
-                    value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 h-32 resize-none"
-                    placeholder="Tell us about your interests, personality, or what you're looking for..."
-                  />
-                </div>
-                <button
-                  onClick={handleJoin}
-                  disabled={isJoining}
-                  className="w-full bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isJoining ? 'Joining...' : 'Join Session'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {hasJoined && (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-              <h2 className="text-3xl font-bold text-white mb-6">
-                ✓ You've Joined!
-              </h2>
-              <p className="text-gray-200 text-lg mb-4">
-                Waiting for the host to start grouping...
-              </p>
-              <p className="text-gray-400 text-sm mb-4">
-                Your info is saved. If you close this tab and return, you'll
-                automatically rejoin.
+              <p className="text-gray-300 mb-6">
+                {isHost
+                  ? 'View all the groups that were created'
+                  : "Check out your group assignment and see who you're matched with"}
               </p>
               <button
-                onClick={() => {
-                  localStorage.removeItem(`session_${code}_info`);
-                  setHasJoined(false);
-                  setMyParticipantId(null);
-                  setDisplayName('');
-                  setSummary('');
-                  // Remove from participants
-                  if (myParticipantId) {
-                    fetch('/api/session/remove-participant', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ participantId: myParticipantId }),
-                    });
-                  }
-                }}
-                className="text-sm text-red-400 hover:text-red-300 underline"
+                onClick={() =>
+                  router.push(`/${code}/${isHost ? 'groups' : 'my-group'}`)
+                }
+                className="bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold px-8 py-4 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105"
               >
-                Leave and clear saved info
+                {isHost ? 'View All Groups' : 'View My Group'} →
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Participants List */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-            <h2 className="text-3xl font-bold text-white mb-6">
-              Participants ({participants.length})
-            </h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {participants.length === 0 ? (
-                <p className="text-gray-300 italic">No participants yet...</p>
-              ) : (
-                participants.map((participant) => (
-                  <div
-                    key={participant.id}
-                    className="bg-white/20 rounded-lg px-4 py-3 text-white font-semibold animate-fade-in"
-                  >
-                    {participant.display_name}
+        {sessionStatus !== 'grouping' && (
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Participant Join Form - Hidden for host */}
+            {!hasJoined && !isHost && (
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+                <h2 className="text-3xl font-bold text-white mb-6">
+                  Join Session
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-white mb-2 font-semibold">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="Enter your name"
+                    />
                   </div>
-                ))
-              )}
+                  <div>
+                    <label className="block text-white mb-2 font-semibold">
+                      About You
+                    </label>
+                    <textarea
+                      value={summary}
+                      onChange={(e) => setSummary(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 h-32 resize-none"
+                      placeholder="Tell us about your interests, personality, or what you're looking for..."
+                    />
+                  </div>
+                  <button
+                    onClick={handleJoin}
+                    disabled={isJoining}
+                    className="w-full bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isJoining ? 'Joining...' : 'Join Session'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {hasJoined && (
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+                <h2 className="text-3xl font-bold text-white mb-6">
+                  ✓ You've Joined!
+                </h2>
+                <p className="text-gray-200 text-lg mb-4">
+                  Waiting for the host to start grouping...
+                </p>
+                <p className="text-gray-400 text-sm mb-4">
+                  Your info is saved. If you close this tab and return, you'll
+                  automatically rejoin.
+                </p>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem(`session_${code}_info`);
+                    setHasJoined(false);
+                    setMyParticipantId(null);
+                    setDisplayName('');
+                    setSummary('');
+                    // Remove from participants
+                    if (myParticipantId) {
+                      fetch('/api/session/remove-participant', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          participantId: myParticipantId,
+                        }),
+                      });
+                    }
+                  }}
+                  className="text-sm text-red-400 hover:text-red-300 underline"
+                >
+                  Leave and clear saved info
+                </button>
+              </div>
+            )}
+
+            {/* Participants List */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+              <h2 className="text-3xl font-bold text-white mb-6">
+                Participants ({participants.length})
+              </h2>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {participants.length === 0 ? (
+                  <p className="text-gray-300 italic">No participants yet...</p>
+                ) : (
+                  participants.map((participant) => (
+                    <div
+                      key={participant.id}
+                      className="bg-white/20 rounded-lg px-4 py-3 text-white font-semibold animate-fade-in"
+                    >
+                      {participant.display_name}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Loading screen for participants during group generation */}
+        {sessionStatus === 'grouping' && !groupsData && !isHost && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-12 border border-white/20 text-center">
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-t-4 border-violet-500"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="animate-pulse text-4xl">🎲</div>
+                  </div>
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Creating Your Perfect Group...
+              </h2>
+              <p className="text-gray-300 text-lg mb-2">
+                Our AI is analyzing personalities and interests
+              </p>
+              <p className="text-gray-400 text-sm">
+                This may take a few moments
+              </p>
+              <div className="mt-8 flex justify-center gap-2">
+                <div
+                  className="w-3 h-3 bg-violet-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                ></div>
+                <div
+                  className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                ></div>
+                <div
+                  className="w-3 h-3 bg-pink-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Host Controls (show only to host) */}
         {isHost && (
@@ -540,9 +657,30 @@ export default function SessionPage() {
               {/* Show these buttons when session is closed (done) */}
               {sessionStatus === 'done' && (
                 <>
-                  <button className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105">
-                    Generate Groups
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleGenerateGroups}
+                      disabled={isGeneratingGroups}
+                      className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingGroups ? 'Generating...' : 'Generate Groups'}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <label className="text-white text-sm font-semibold">
+                        Group Size:
+                      </label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="10"
+                        value={groupSize}
+                        onChange={(e) =>
+                          setGroupSize(parseInt(e.target.value) || 3)
+                        }
+                        className="w-16 px-3 py-2 rounded-lg bg-white/20 text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold"
+                      />
+                    </div>
+                  </div>
                   <button
                     onClick={handleResetSession}
                     className="bg-orange-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-orange-700 transition-all transform hover:scale-105"
