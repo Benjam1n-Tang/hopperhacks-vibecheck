@@ -7,17 +7,20 @@ import {
   SignedIn,
   SignedOut,
   UserButton,
+  useUser,
 } from '@clerk/nextjs';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Menu, X } from 'lucide-react';
 import { Button } from './ui/button';
 
 const NavBar = () => {
   const router = useRouter();
+  const { user } = useUser();
   const [isCreating, setIsCreating] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleCreateSession = async () => {
     setIsCreating(true);
@@ -57,21 +60,28 @@ const NavBar = () => {
             Vibe Check
           </h4>
         </Link>
-        <div className="flex items-center">
+
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center">
           <SignedOut>
             <div className="flex items-center gap-4">
               <SignInButton>
-                <Button variant="ghost" className="font-semibold py-6 px-9 bg-neutral-100 hover:bg-neutral-200 rounded-xl">
+                <Button
+                  variant="ghost"
+                  className="font-semibold py-6 px-9 bg-neutral-100 hover:bg-neutral-200 rounded-xl"
+                >
                   Sign In
                 </Button>
               </SignInButton>
               <SignUpButton>
-                <Button className="font-semibold py-6 px-9 rounded-xl">Sign Up</Button>
+                <Button className="font-semibold py-6 px-9 rounded-xl">
+                  Sign Up
+                </Button>
               </SignUpButton>
             </div>
           </SignedOut>
           <SignedIn>
-            <div className="flex items-center gap-12">
+            <div className="flex items-center gap-6">
               <Button
                 onClick={handleCreateSession}
                 disabled={isCreating}
@@ -86,7 +96,7 @@ const NavBar = () => {
                   </>
                 )}
               </Button>
-              <div className="flex items-center [&_.cl-avatarBox]:!w-10 [&_.cl-avatarBox]:!h-10 [&_.cl-avatarImage]:!w-10 [&_.cl-avatarImage]:!h-10 [&_.cl-avatarImage]:!object-cover [&_.cl-avatarImage]:!object-center">
+              <div className="[&_.cl-avatarBox]:w-10! [&_.cl-avatarBox]:h-10! [&_.cl-avatarImage]:w-10! [&_.cl-avatarImage]:h-10! [&_.cl-avatarImage]:object-cover! [&_.cl-avatarImage]:object-center!">
                 <UserButton>
                   <UserButton.MenuItems>
                     <UserButton.Link
@@ -116,7 +126,94 @@ const NavBar = () => {
             </div>
           </SignedIn>
         </div>
+
+        {/* Mobile Hamburger Menu */}
+        <div className="md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="h-12 w-12"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-9 w-9" />
+            ) : (
+              <Menu className="h-9 w-9" />
+            )}
+          </Button>
+        </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-neutral-300 shadow-lg">
+          <div className="px-6 py-4 flex flex-col gap-3">
+            <SignedOut>
+              <SignInButton>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start font-semibold py-6 bg-neutral-100 hover:bg-neutral-200 rounded-xl"
+                >
+                  Sign In
+                </Button>
+              </SignInButton>
+              <SignUpButton>
+                <Button className="w-full justify-start font-semibold py-6 rounded-xl">
+                  Sign Up
+                </Button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <div className="flex items-center gap-3 pb-3 mb-3 border-b border-neutral-200">
+                <div className="[&_.cl-avatarBox]:w-10! [&_.cl-avatarBox]:h-10! [&_.cl-avatarImage]:w-10! [&_.cl-avatarImage]:h-10!">
+                  <UserButton>
+                    <UserButton.MenuItems>
+                      <UserButton.Action label="manageAccount" />
+                    </UserButton.MenuItems>
+                  </UserButton>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-neutral-800">
+                    {user?.fullName || user?.firstName || 'User'}
+                  </span>
+                  <span className="text-sm text-neutral-500">
+                    {user?.primaryEmailAddress?.emailAddress}
+                  </span>
+                </div>
+              </div>
+              <Button
+                onClick={() => {
+                  handleCreateSession();
+                  setMobileMenuOpen(false);
+                }}
+                disabled={isCreating}
+                className="w-full justify-start font-semibold py-6 rounded-xl"
+              >
+                {isCreating ? (
+                  'Creating...'
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create Session
+                  </>
+                )}
+              </Button>
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full"
+              >
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start font-semibold py-6 bg-neutral-100 hover:bg-neutral-200 rounded-xl"
+                >
+                  Profile
+                </Button>
+              </Link>
+            </SignedIn>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
