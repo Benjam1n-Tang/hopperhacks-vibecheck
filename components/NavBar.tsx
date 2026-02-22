@@ -57,60 +57,62 @@ const NavBar = () => {
             Vibe Check
           </h4>
         </Link>
-        <div className="flex items-center gap-12">
+        <div className="flex items-center">
           <SignedOut>
-            <SignInButton>
-              <button className="bg-transparent text-white font-semibold px-4 py-2 rounded hover:bg-gray-800 transition hover:cursor-pointer">
-                Sign In
-              </button>
-            </SignInButton>
-            <SignUpButton>
-              <button className="bg-violet-600 text-white font-bold px-4 py-2 rounded hover:bg-violet-700 transition hover:cursor-pointer">
-                Sign Up
-              </button>
-            </SignUpButton>
+            <div className="flex items-center gap-4">
+              <SignInButton>
+                <Button variant="ghost" className="font-semibold py-6 px-9 bg-neutral-100 hover:bg-neutral-200 rounded-xl">
+                  Sign In
+                </Button>
+              </SignInButton>
+              <SignUpButton>
+                <Button className="font-semibold py-6 px-9 rounded-xl">Sign Up</Button>
+              </SignUpButton>
+            </div>
           </SignedOut>
           <SignedIn>
-            <Button
-              onClick={handleCreateSession}
-              disabled={isCreating}
-              className="font-semibold py-6 pl-4! pr-5! rounded-xl px-!8"
-            >
-              {isCreating ? (
-                'Creating...'
-              ) : (
-                <>
-                  <Plus className="w-5 h-5 mr-1" />
-                  Create Session
-                </>
-              )}
-            </Button>
-            <div className="flex items-center [&_.cl-avatarBox]:!w-10 [&_.cl-avatarBox]:!h-10 [&_.cl-avatarImage]:!w-10 [&_.cl-avatarImage]:!h-10 [&_.cl-avatarImage]:!object-cover [&_.cl-avatarImage]:!object-center">
-              <UserButton>
-                <UserButton.MenuItems>
-                  <UserButton.Link
-                    label="Profile"
-                    labelIcon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                        />
-                      </svg>
-                    }
-                    href="/profile"
-                  />
-                  <UserButton.Action label="manageAccount" />
-                </UserButton.MenuItems>
-              </UserButton>
+            <div className="flex items-center gap-12">
+              <Button
+                onClick={handleCreateSession}
+                disabled={isCreating}
+                className="font-semibold py-6 pl-4! pr-5! rounded-xl px-!8"
+              >
+                {isCreating ? (
+                  'Creating...'
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 mr-1" />
+                    Create Session
+                  </>
+                )}
+              </Button>
+              <div className="flex items-center [&_.cl-avatarBox]:!w-10 [&_.cl-avatarBox]:!h-10 [&_.cl-avatarImage]:!w-10 [&_.cl-avatarImage]:!h-10 [&_.cl-avatarImage]:!object-cover [&_.cl-avatarImage]:!object-center">
+                <UserButton>
+                  <UserButton.MenuItems>
+                    <UserButton.Link
+                      label="Profile"
+                      labelIcon={
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                          />
+                        </svg>
+                      }
+                      href="/profile"
+                    />
+                    <UserButton.Action label="manageAccount" />
+                  </UserButton.MenuItems>
+                </UserButton>
+              </div>
             </div>
           </SignedIn>
         </div>
