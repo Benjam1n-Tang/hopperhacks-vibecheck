@@ -19,13 +19,15 @@ export default function Home() {
           </p>
 
           {/* Action Cards */}
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
+          <div className="grid md:grid-cols-2 gap-8 mb-12">
             <JoinSessionCard />
             <CreateSessionCard />
           </div>
 
           {/* Features Section */}
-          <HowItWorksSection />
+          <div className="mb-24">
+            <HowItWorksSection />
+          </div>
         </div>
       </div>
     </div>
