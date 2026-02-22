@@ -1,65 +1,141 @@
-import Image from "next/image";
+'use client';
+
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function Home() {
+  const { isSignedIn } = useUser();
+  const router = useRouter();
+  const [joinCode, setJoinCode] = useState('');
+
+  const handleJoinSession = () => {
+    if (joinCode.trim()) {
+      router.push(`/${joinCode.toUpperCase()}`);
+    }
+  };
+
+  const handleCreateSession = async () => {
+    try {
+      const response = await fetch('/api/session/create', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const { code } = await response.json();
+        router.push(`/${code}`);
+      }
+    } catch (error) {
+      console.error('Error creating session:', error);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-linear-to-br from-violet-900 via-purple-900 to-indigo-900">
+      <div className="pt-32 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Hero Section */}
+          <h1 className="text-7xl font-bold text-white mb-6 animate-fade-in">
+            Find Your <span className="text-yellow-400">Vibe</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-2xl text-gray-200 mb-12 max-w-2xl mx-auto">
+            AI-powered group generation that matches people based on personality
+            and interests. Create a session, let people join, and watch the
+            magic happen.
           </p>
+
+          {/* Action Cards */}
+          <div className="grid md:grid-cols-2 gap-8 mb-16">
+            {/* Join Session Card */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:border-white/40 transition-all">
+              <div className="text-5xl mb-4">🎯</div>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Join Session
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Have a code? Enter it below to join an existing session
+              </p>
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="Enter Code"
+                maxLength={6}
+                className="w-full px-6 py-4 rounded-lg text-center text-2xl font-bold bg-white/20 text-white placeholder-gray-400 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 mb-4 uppercase"
+              />
+              <button
+                onClick={handleJoinSession}
+                disabled={!joinCode.trim()}
+                className="w-full bg-linear-to-r from-blue-600 to-cyan-600 text-white font-bold py-4 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                Join Now
+              </button>
+            </div>
+
+            {/* Create Session Card */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:border-white/40 transition-all">
+              <div className="text-5xl mb-4">✨</div>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Create Session
+              </h2>
+              <p className="text-gray-300 mb-6">
+                {isSignedIn
+                  ? 'Start a new session and invite participants'
+                  : 'Sign in to host and manage your own sessions'}
+              </p>
+              {isSignedIn ? (
+                <button
+                  onClick={handleCreateSession}
+                  className="w-full bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold py-4 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105 mt-18"
+                >
+                  Create Session
+                </button>
+              ) : (
+                <div className="text-gray-400 italic mt-18">
+                  Sign in using the button above to create sessions
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Features Section */}
+          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-12 border border-white/10">
+            <h3 className="text-3xl font-bold text-white mb-8">How It Works</h3>
+            <div className="grid md:grid-cols-3 gap-8 text-left">
+              <div>
+                <div className="text-4xl mb-4">🎪</div>
+                <h4 className="text-xl font-bold text-white mb-2">
+                  1. Create or Join
+                </h4>
+                <p className="text-gray-300">
+                  Host creates a session with a unique code. Participants join
+                  with just a name and short bio.
+                </p>
+              </div>
+              <div>
+                <div className="text-4xl mb-4">🤖</div>
+                <h4 className="text-xl font-bold text-white mb-2">
+                  2. AI Analysis
+                </h4>
+                <p className="text-gray-300">
+                  Our AI analyzes everyone's interests and personalities to find
+                  the best matches.
+                </p>
+              </div>
+              <div>
+                <div className="text-4xl mb-4">👥</div>
+                <h4 className="text-xl font-bold text-white mb-2">
+                  3. Perfect Groups
+                </h4>
+                <p className="text-gray-300">
+                  Get instantly sorted into groups with people who vibe with
+                  you. Host can regenerate anytime.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
