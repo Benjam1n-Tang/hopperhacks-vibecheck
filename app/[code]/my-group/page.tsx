@@ -26,6 +26,7 @@ export default function MyGroupPage() {
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [myParticipantId, setMyParticipantId] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string>('Untitled Session');
   const supabase = createClient();
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function MyGroupPage() {
     // Load session
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('id, status, groups_data')
+      .select('id, status, groups_data, title')
       .eq('code', code)
       .single();
 
@@ -80,6 +81,7 @@ export default function MyGroupPage() {
     }
 
     setSessionId(session.id);
+    setSessionTitle(session.title || 'Untitled Session');
 
     // Get participant info from localStorage
     const storageKey = `session_${code}_info`;
@@ -147,7 +149,7 @@ export default function MyGroupPage() {
     // Fetch groups from sessions.groups_data JSON column
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('groups_data')
+      .select('groups_data, title')
       .eq('id', sessionId)
       .single();
 
@@ -155,6 +157,11 @@ export default function MyGroupPage() {
       console.error('Error loading groups:', sessionError);
       setLoading(false);
       return;
+    }
+
+    // Update title if it changed
+    if (session?.title) {
+      setSessionTitle(session.title);
     }
 
     // Find which group this participant is in
@@ -175,7 +182,7 @@ export default function MyGroupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your group...</p>
@@ -186,7 +193,7 @@ export default function MyGroupPage() {
 
   if (!myGroup) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 text-lg mb-4">
             You haven't been assigned to a group yet.
@@ -203,7 +210,7 @@ export default function MyGroupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 p-8">
+    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <button
@@ -213,10 +220,14 @@ export default function MyGroupPage() {
             ← Back to Session
           </button>
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Your Group - {code}
+            {sessionTitle}
           </h1>
           <p className="text-gray-600">
-            You've been assigned to Group {myGroup.group_number}
+            Session Code: <span className="font-semibold">{code}</span> • You're
+            in{' '}
+            <span className="font-semibold text-purple-600">
+              Group {myGroup.group_number}
+            </span>
           </p>
         </div>
 
@@ -254,7 +265,7 @@ export default function MyGroupPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl shadow-lg p-8 border border-purple-200">
+        <div className="bg-linear-to-br from-purple-100 to-blue-100 rounded-xl shadow-lg p-8 border border-purple-200">
           <div className="flex items-start gap-3 mb-4">
             <div className="bg-purple-600 rounded-full p-2 mt-1">
               <svg

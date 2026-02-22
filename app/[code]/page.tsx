@@ -30,26 +30,115 @@ export default function SessionPage() {
   const [groupSize, setGroupSize] = useState<number>(3);
   const [isGeneratingGroups, setIsGeneratingGroups] = useState(false);
   const [groupsData, setGroupsData] = useState<any>(null);
+  const [selectedPairings, setSelectedPairings] = useState<string[]>([]);
+  const [pairingWarning, setPairingWarning] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string>('Untitled Session');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState<string>('');
   const supabase = createClient();
 
   // Check if current user is the host
   const isHost = isLoaded && user && user.id === hostClerkId;
 
-  // Load saved participant info from localStorage on mount
+  // Calculate cluster size accounting for transitive relationships
+  const calculateClusterSize = (
+    participantId: string,
+    selectedIds: string[],
+  ): number => {
+    // Build a graph of all pairing relationships
+    const graph = new Map<string, Set<string>>();
+
+    // Add current selection
+    const allIds = [participantId, ...selectedIds];
+    allIds.forEach((id) => {
+      if (!graph.has(id)) graph.set(id, new Set());
+    });
+    selectedIds.forEach((id) => {
+      graph.get(participantId)!.add(id);
+      graph.get(id)!.add(participantId);
+    });
+
+    // DFS to find connected component size
+    const visited = new Set<string>();
+    const dfs = (id: string): number => {
+      if (visited.has(id)) return 0;
+      visited.add(id);
+      let count = 1;
+      (graph.get(id) || new Set()).forEach((neighborId) => {
+        count += dfs(neighborId);
+      });
+      return count;
+    };
+
+    return dfs(participantId);
+  };
+
+  // Load saved participant info from localStorage and user profile on mount
   useEffect(() => {
-    const savedInfo = localStorage.getItem(`session_${code}_info`);
-    if (savedInfo) {
-      try {
-        const parsedInfo = JSON.parse(savedInfo);
-        const savedName = parsedInfo.displayName || parsedInfo.display_name;
-        const savedSummary = parsedInfo.summary;
-        setDisplayName(savedName || '');
-        setSummary(savedSummary || '');
-      } catch (error) {
-        console.error('Error loading saved info:', error);
+    async function loadSavedInfo() {
+      // First try to load from localStorage (session-specific)
+      const savedInfo = localStorage.getItem(`session_${code}_info`);
+      if (savedInfo) {
+        try {
+          const parsedInfo = JSON.parse(savedInfo);
+          const savedName = parsedInfo.displayName || parsedInfo.display_name;
+          const savedSummary = parsedInfo.summary;
+          setDisplayName(savedName || '');
+          setSummary(savedSummary || '');
+          return; // If we have session-specific info, use it
+        } catch (error) {
+          console.error('Error loading saved info:', error);
+        }
+      }
+
+      // If no session-specific info and user is logged in, load from profile
+      if (isLoaded && user) {
+        try {
+          const response = await fetch('/api/user/profile');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user?.saved_summary) {
+              setSummary(data.user.saved_summary);
+            }
+            // Try to use Clerk's display name if available
+            if (user.fullName) {
+              setDisplayName(user.fullName);
+            } else if (user.firstName) {
+              setDisplayName(user.firstName);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
       }
     }
-  }, [code]);
+
+    loadSavedInfo();
+  }, [code, isLoaded, user]);
+
+  // Load pairing preferences for this participant
+  useEffect(() => {
+    async function loadPairingPreferences() {
+      if (!myParticipantId) return;
+
+      try {
+        const response = await fetch(
+          `/api/session/pair-preferences?sessionCode=${code.toUpperCase()}`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const myPairs = data.pairs
+            .filter((p: any) => p.participant_id === myParticipantId)
+            .map((p: any) => p.pinned_participant_id);
+          setSelectedPairings(myPairs);
+        }
+      } catch (error) {
+        console.error('Error loading pairing preferences:', error);
+      }
+    }
+
+    loadPairingPreferences();
+  }, [myParticipantId, code]);
 
   // Auto-rejoin if user had previously joined this session
   useEffect(() => {
@@ -128,7 +217,7 @@ export default function SessionPage() {
       // Get session by code
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, status, host_clerk_id, groups_data')
+        .select('id, status, host_clerk_id, groups_data, title')
         .eq('code', code.toUpperCase())
         .single();
 
@@ -141,6 +230,7 @@ export default function SessionPage() {
       setSessionStatus(session.status);
       setHostClerkId(session.host_clerk_id);
       setGroupsData(session.groups_data);
+      setSessionTitle(session.title || 'Untitled Session');
 
       // Fetch existing participants
       const { data: existingParticipants, error: participantsError } =
@@ -191,6 +281,9 @@ export default function SessionPage() {
           setSessionStatus(newSession.status);
           if (newSession.groups_data) {
             setGroupsData(newSession.groups_data);
+          }
+          if (newSession.title) {
+            setSessionTitle(newSession.title);
           }
         },
       )
@@ -282,6 +375,32 @@ export default function SessionPage() {
               participantId,
             }),
           );
+
+          // Save pairing preferences if any selected
+          if (selectedPairings.length > 0) {
+            await savePairingPreferences(participantId, selectedPairings);
+          }
+
+          // Save summary to user profile if logged in and they don't have one saved
+          if (user) {
+            try {
+              const profileResponse = await fetch('/api/user/profile');
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                // Only save if user doesn't have a saved summary yet
+                if (!profileData.user?.saved_summary) {
+                  await fetch('/api/user/profile', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saved_summary: summary }),
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error saving summary to profile:', error);
+              // Don't fail the join if profile save fails
+            }
+          }
         }
       } else {
         const error = await response.json();
@@ -293,6 +412,25 @@ export default function SessionPage() {
       alert('An error occurred. Please try again.');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const savePairingPreferences = async (
+    participantId: string,
+    pinnedIds: string[],
+  ) => {
+    try {
+      await fetch('/api/session/pair-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          participantId,
+          pinnedParticipantIds: pinnedIds,
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving pairing preferences:', error);
     }
   };
 
@@ -322,6 +460,46 @@ export default function SessionPage() {
     } finally {
       setIsSeeding(false);
     }
+  };
+
+  const handleEditTitle = () => {
+    setEditTitleValue(sessionTitle);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editTitleValue.trim()) {
+      alert('Title cannot be empty');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/session/update-title', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionCode: code.toUpperCase(),
+          title: editTitleValue.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setSessionTitle(editTitleValue.trim());
+        setIsEditingTitle(false);
+      } else {
+        const error = await response.json();
+        console.error('Failed to update title:', error);
+        alert('Failed to update title.');
+      }
+    } catch (error) {
+      console.error('Error updating title:', error);
+      alert('An error occurred while updating the title.');
+    }
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditingTitle(false);
+    setEditTitleValue('');
   };
 
   const handleCloseSession = async () => {
@@ -438,8 +616,65 @@ export default function SessionPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 pt-20 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Session Code Header */}
+        {/* Session Title and Code Header */}
         <div className="text-center mb-12">
+          {/* Session Title */}
+          <div className="mb-6">
+            {isEditingTitle ? (
+              <div className="flex items-center justify-center gap-3">
+                <input
+                  type="text"
+                  value={editTitleValue}
+                  onChange={(e) => setEditTitleValue(e.target.value)}
+                  className="px-4 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 text-2xl font-bold text-center max-w-md"
+                  placeholder="Enter session title"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveTitle}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  ✓ Save
+                </button>
+                <button
+                  onClick={handleCancelEditTitle}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-3">
+                <h2 className="text-4xl font-bold text-white">
+                  {sessionTitle}
+                </h2>
+                {isHost && (
+                  <button
+                    onClick={handleEditTitle}
+                    className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+                    title="Edit session title"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Session Code */}
           <h1 className="text-6xl font-bold text-white mb-4">
             Session Code: <span className="text-yellow-400">{code}</span>
           </h1>
@@ -505,6 +740,67 @@ export default function SessionPage() {
                       placeholder="Tell us about your interests, personality, or what you're looking for..."
                     />
                   </div>
+                  {participants.length > 0 && (
+                    <div>
+                      <label className="block text-white mb-2 font-semibold">
+                        Want to pair with someone? (Optional)
+                      </label>
+                      <p className="text-gray-300 text-sm mb-2">
+                        Select people you'd like to be grouped with. The AI will
+                        try to keep you together!
+                      </p>
+                      <div className="space-y-2 max-h-40 overflow-y-auto bg-white/10 rounded-lg p-3 border border-white/20">
+                        {participants
+                          .filter((p) => p.display_name !== displayName)
+                          .map((participant) => (
+                            <label
+                              key={participant.id}
+                              className="flex items-center gap-3 text-white hover:bg-white/10 p-2 rounded cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedPairings.includes(
+                                  participant.id,
+                                )}
+                                onChange={(e) => {
+                                  const newPairings = e.target.checked
+                                    ? [...selectedPairings, participant.id]
+                                    : selectedPairings.filter(
+                                        (id) => id !== participant.id,
+                                      );
+                                  setSelectedPairings(newPairings);
+
+                                  // Check cluster size and show warning
+                                  if (myParticipantId) {
+                                    const clusterSize = calculateClusterSize(
+                                      myParticipantId,
+                                      newPairings,
+                                    );
+                                    if (clusterSize > groupSize) {
+                                      setPairingWarning(
+                                        `Your pairing group (${clusterSize} people) exceeds the group size (${groupSize}). You may be split into separate groups.`,
+                                      );
+                                    } else {
+                                      setPairingWarning(null);
+                                    }
+                                  }
+                                }}
+                                className="w-4 h-4 accent-violet-500"
+                              />
+                              <span className="text-sm">
+                                {participant.display_name}
+                              </span>
+                            </label>
+                          ))}
+                      </div>
+                      {pairingWarning && (
+                        <p className="text-yellow-400 text-xs mt-2 flex items-start gap-1">
+                          <span>⚠️</span>
+                          <span>{pairingWarning}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <button
                     onClick={handleJoin}
                     disabled={isJoining}
@@ -528,6 +824,81 @@ export default function SessionPage() {
                   Your info is saved. If you close this tab and return, you'll
                   automatically rejoin.
                 </p>
+
+                {/* Pairing preferences for already joined participants */}
+                {participants.length > 1 && (
+                  <div className="mb-6">
+                    <label className="block text-white mb-2 font-semibold">
+                      Want to pair with someone?
+                    </label>
+                    <p className="text-gray-300 text-sm mb-3">
+                      Select people you'd like to be grouped with:
+                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto bg-white/10 rounded-lg p-3 border border-white/20">
+                      {participants
+                        .filter((p) => p.id !== myParticipantId)
+                        .map((participant) => (
+                          <label
+                            key={participant.id}
+                            className="flex items-center gap-3 text-white hover:bg-white/10 p-2 rounded cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPairings.includes(
+                                participant.id,
+                              )}
+                              onChange={async (e) => {
+                                const newPairings = e.target.checked
+                                  ? [...selectedPairings, participant.id]
+                                  : selectedPairings.filter(
+                                      (id) => id !== participant.id,
+                                    );
+                                setSelectedPairings(newPairings);
+
+                                // Check cluster size and show warning
+                                if (myParticipantId) {
+                                  const clusterSize = calculateClusterSize(
+                                    myParticipantId,
+                                    newPairings,
+                                  );
+                                  if (clusterSize > groupSize) {
+                                    setPairingWarning(
+                                      `Your pairing group (${clusterSize} people) exceeds the group size (${groupSize}). You may be split into separate groups.`,
+                                    );
+                                  } else {
+                                    setPairingWarning(null);
+                                  }
+
+                                  // Save immediately when changed
+                                  await savePairingPreferences(
+                                    myParticipantId,
+                                    newPairings,
+                                  );
+                                }
+                              }}
+                              className="w-4 h-4 accent-violet-500"
+                            />
+                            <span className="text-sm">
+                              {participant.display_name}
+                            </span>
+                          </label>
+                        ))}
+                    </div>
+                    {pairingWarning && (
+                      <p className="text-yellow-400 text-xs mt-2 flex items-start gap-1">
+                        <span>⚠️</span>
+                        <span>{pairingWarning}</span>
+                      </p>
+                    )}
+                    {selectedPairings.length > 0 && !pairingWarning && (
+                      <p className="text-green-400 text-xs mt-2">
+                        ✓ Preferences saved! The AI will try to group you
+                        together.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     localStorage.removeItem(`session_${code}_info`);

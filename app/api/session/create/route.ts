@@ -78,6 +78,7 @@ export async function POST() {
         host_clerk_id: userId,
         status: 'waiting',
         group_size: 4, // Default group size
+        title: 'Untitled Session',
       })
       .select()
       .single();
