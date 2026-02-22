@@ -223,6 +223,8 @@ export default function SessionPage() {
 
       if (sessionError || !session) {
         console.error('Session not found:', sessionError);
+        // Redirect to home page if session doesn't exist
+        router.push('/');
         return;
       }
 
