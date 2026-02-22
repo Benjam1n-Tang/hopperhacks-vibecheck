@@ -20,6 +20,161 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Helper function to find paired clusters (connected components)
+function findPairedClusters(
+  participants: Participant[],
+  pairingPreferences: Array<{
+    participant_id: string;
+    pinned_participant_id: string;
+  }>,
+): Set<string>[] {
+  // Build adjacency list
+  const adjacency = new Map<string, Set<string>>();
+
+  participants.forEach((p) => {
+    if (!adjacency.has(p.id)) {
+      adjacency.set(p.id, new Set());
+    }
+  });
+
+  // Add edges for pairing preferences (bidirectional)
+  pairingPreferences.forEach((pair) => {
+    if (
+      adjacency.has(pair.participant_id) &&
+      adjacency.has(pair.pinned_participant_id)
+    ) {
+      adjacency.get(pair.participant_id)!.add(pair.pinned_participant_id);
+      adjacency.get(pair.pinned_participant_id)!.add(pair.participant_id);
+    }
+  });
+
+  // Find connected components using DFS
+  const visited = new Set<string>();
+  const clusters: Set<string>[] = [];
+
+  function dfs(participantId: string, cluster: Set<string>) {
+    visited.add(participantId);
+    cluster.add(participantId);
+
+    const neighbors = adjacency.get(participantId) || new Set();
+    neighbors.forEach((neighborId) => {
+      if (!visited.has(neighborId)) {
+        dfs(neighborId, cluster);
+      }
+    });
+  }
+
+  participants.forEach((p) => {
+    if (!visited.has(p.id)) {
+      const cluster = new Set<string>();
+      dfs(p.id, cluster);
+      clusters.push(cluster);
+    }
+  });
+
+  return clusters;
+}
+
+// Helper function to split a large cluster into smaller feasible sub-clusters
+function splitCluster(
+  cluster: Set<string>,
+  maxSize: number,
+  pairingPreferences: Array<{
+    participant_id: string;
+    pinned_participant_id: string;
+  }>,
+): Set<string>[] {
+  if (cluster.size <= maxSize) {
+    return [cluster];
+  }
+
+  // Build internal connection strength map (how many mutual connections within cluster)
+  const connectionStrength = new Map<string, number>();
+  cluster.forEach((id) => {
+    const connections = pairingPreferences.filter(
+      (p) =>
+        (p.participant_id === id && cluster.has(p.pinned_participant_id)) ||
+        (p.pinned_participant_id === id && cluster.has(p.participant_id)),
+    ).length;
+    connectionStrength.set(id, connections);
+  });
+
+  // Sort by connection strength (most connected first)
+  const sortedIds = Array.from(cluster).sort(
+    (a, b) =>
+      (connectionStrength.get(b) || 0) - (connectionStrength.get(a) || 0),
+  );
+
+  // Greedily assign to sub-clusters
+  const subClusters: Set<string>[] = [];
+  let currentSubCluster = new Set<string>();
+
+  for (const id of sortedIds) {
+    if (currentSubCluster.size < maxSize) {
+      currentSubCluster.add(id);
+    } else {
+      subClusters.push(currentSubCluster);
+      currentSubCluster = new Set<string>([id]);
+    }
+  }
+
+  if (currentSubCluster.size > 0) {
+    subClusters.push(currentSubCluster);
+  }
+
+  return subClusters;
+}
+
+// Helper function to prioritize and process clusters
+function processClusters(
+  clusters: Set<string>[],
+  groupSize: number,
+  pairingPreferences: Array<{
+    participant_id: string;
+    pinned_participant_id: string;
+  }>,
+): {
+  feasibleClusters: Set<string>[];
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const feasibleClusters: Set<string>[] = [];
+
+  // Sort clusters by size (smaller first - easier to satisfy)
+  const sortedClusters = clusters
+    .filter((c) => c.size > 1)
+    .sort((a, b) => a.size - b.size);
+
+  for (const cluster of sortedClusters) {
+    if (cluster.size <= groupSize) {
+      // Cluster fits in one group - keep it
+      feasibleClusters.push(cluster);
+    } else {
+      // Cluster is too large - split it
+      warnings.push(
+        `Warning: ${cluster.size} people wanted to be grouped together, but max group size is ${groupSize}. Split into smaller groups.`,
+      );
+
+      const subClusters = splitCluster(cluster, groupSize, pairingPreferences);
+      feasibleClusters.push(...subClusters);
+    }
+  }
+
+  // Check if total constraint demands are reasonable
+  const totalConstrainedPeople = feasibleClusters.reduce(
+    (sum, c) => sum + c.size,
+    0,
+  );
+
+  if (totalConstrainedPeople > 0) {
+    console.log(
+      `Processing ${feasibleClusters.length} feasible pairing constraints covering ${totalConstrainedPeople} people`,
+    );
+  }
+
+  return { feasibleClusters, warnings };
+}
+
 async function callAI(prompt: string): Promise<string> {
   const token = process.env.GITHUB_TOKEN;
 
@@ -156,9 +311,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch pairing preferences
+    const { data: pinnedPairs, error: pairsError } = await supabase
+      .from('pinned_pairs')
+      .select('participant_id, pinned_participant_id')
+      .eq('session_id', session.id);
+
+    if (pairsError) {
+      console.error('Error fetching pinned pairs:', pairsError);
+    }
+
+    const pairingPreferences = pinnedPairs || [];
+
     console.log(
       `Grouping ${participants.length} participants into groups of ${groupSize}`,
     );
+    if (pairingPreferences.length > 0) {
+      console.log(`Found ${pairingPreferences.length} pairing preferences`);
+    }
 
     // Update session status to 'grouping' immediately so all users see loading screen
     const { error: statusUpdateError } = await supabase
@@ -173,21 +343,85 @@ export async function POST(request: Request) {
       // Continue anyway, this is not critical
     }
 
-    // Prepare participant data for Gemini
+    // Find paired clusters (people who want to be grouped together)
+    const pairedClusters = findPairedClusters(participants, pairingPreferences);
+
+    // Process clusters: split oversized ones, prioritize feasible constraints
+    const { feasibleClusters, warnings } = processClusters(
+      pairedClusters,
+      groupSize,
+      pairingPreferences,
+    );
+
+    // Log any warnings about constraint conflicts
+    warnings.forEach((warning) => console.warn(warning));
+
+    // Build a map of participant ID to their feasible cluster
+    const participantToClusters = new Map<string, Set<string>>();
+    feasibleClusters.forEach((cluster) => {
+      cluster.forEach((participantId) => {
+        participantToClusters.set(participantId, cluster);
+      });
+    });
+
+    // Prepare participant data with pairing information
     const participantList = participants
-      .map(
-        (p, i) =>
-          `${i + 1}. ${p.display_name}: ${p.summary || '[No summary provided]'}`,
-      )
+      .map((p, i) => {
+        const cluster = participantToClusters.get(p.id);
+        let pairingInfo = '';
+
+        if (cluster && cluster.size > 1) {
+          const pairedNames = Array.from(cluster)
+            .map((id) => participants.find((p) => p.id === id)?.display_name)
+            .filter((name) => name !== p.display_name)
+            .join(', ');
+          pairingInfo = ` [Wants to be paired with: ${pairedNames}]`;
+        }
+
+        return `${i + 1}. ${p.display_name}: ${p.summary || '[No summary provided]'}${pairingInfo}`;
+      })
       .join('\n');
+
+    // Build pairing constraints for the prompt
+    let pairingConstraints = '';
+    if (participantToClusters.size > 0) {
+      const constraintsList: string[] = [];
+      const processedClusters = new Set<Set<string>>();
+
+      participantToClusters.forEach((cluster, participantId) => {
+        if (!processedClusters.has(cluster)) {
+          processedClusters.add(cluster);
+          const names = Array.from(cluster)
+            .map((id) => participants.find((p) => p.id === id)?.display_name)
+            .filter(Boolean)
+            .join(', ');
+          const clusterSize = cluster.size;
+
+          // Add size information to help AI understand constraint importance
+          if (clusterSize === 2) {
+            constraintsList.push(
+              `- PAIR (${clusterSize} people): ${names} - must be adjacent`,
+            );
+          } else {
+            constraintsList.push(
+              `- GROUP (${clusterSize} people): ${names} - must be adjacent`,
+            );
+          }
+        }
+      });
+
+      if (constraintsList.length > 0) {
+        pairingConstraints = `\n\nCRITICAL PAIRING CONSTRAINTS (these override personality matching):\n${constraintsList.join('\n')}\n\nIMPORTANT: These people have explicitly requested to be together. Place them adjacent in your sorted list (consecutively) so they end up in the same group when the list is divided into groups of ~${groupSize}. Pairing constraints are MORE important than personality similarity.`;
+      }
+    }
 
     // Ask AI to analyze and sort participants
     const sortingPrompt = `You are a group formation AI. Analyze these participants and sort them by similarity in interests, personality, and preferences. Group people who would work well together.
 
 Participants:
-${participantList}
+${participantList}${pairingConstraints}
 
-Task: Return ONLY a JSON array of participant indices (1-based) in the optimal order for grouping. Sort so that similar people are adjacent. If a participant has no summary or minimal info, place them randomly.
+Task: Return ONLY a JSON array of participant indices (1-based) in the optimal order for grouping. Sort so that similar people are adjacent. CRITICAL: People with pairing constraints MUST be placed next to each other in your sorted list.
 
 Format your response as a valid JSON array of numbers, nothing else. Example: [3, 7, 1, 5, 2, 4, 6]`;
 
