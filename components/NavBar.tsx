@@ -12,6 +12,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { Button } from './ui/button';
 
 const NavBar = () => {
   const router = useRouter();
@@ -55,7 +57,7 @@ const NavBar = () => {
             Vibe Check
           </h4>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-12">
           <SignedOut>
             <SignInButton>
               <button className="bg-transparent text-white font-semibold px-4 py-2 rounded hover:bg-gray-800 transition hover:cursor-pointer">
@@ -69,14 +71,21 @@ const NavBar = () => {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
-            <button
+            <Button
               onClick={handleCreateSession}
               disabled={isCreating}
-              className="bg-linear-to-r from-violet-600 to-purple-600 text-white font-bold px-6 py-2 rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="font-semibold py-6 pl-4! pr-5! rounded-xl px-!8"
             >
-              {isCreating ? 'Creating...' : '+ Create Session'}
-            </button>
-            <div className="[&_.cl-avatarBox]:!w-10 [&_.cl-avatarBox]:!h-10 [&_.cl-avatarImage]:!w-10 [&_.cl-avatarImage]:!h-10 [&_.cl-avatarImage]:!object-cover [&_.cl-avatarImage]:!object-center">
+              {isCreating ? (
+                'Creating...'
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-1" />
+                  Create Session
+                </>
+              )}
+            </Button>
+            <div className="flex items-center [&_.cl-avatarBox]:!w-10 [&_.cl-avatarBox]:!h-10 [&_.cl-avatarImage]:!w-10 [&_.cl-avatarImage]:!h-10 [&_.cl-avatarImage]:!object-cover [&_.cl-avatarImage]:!object-center">
               <UserButton>
                 <UserButton.MenuItems>
                   <UserButton.Link
