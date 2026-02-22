@@ -36,7 +36,7 @@ const NavBar = () => {
   };
 
   return (
-    <nav className="flex items-center justify-between px-8 py-4 bg-gray-900 text-white shadow-md fixed top-0 z-50 w-full">
+    <nav className="flex items-center justify-between px-8 py-4 bg-white text-black shadow-md fixed top-0 z-50 w-full">
       <Link
         href="/"
         className="font-bold text-3xl hover:text-violet-400 transition"
