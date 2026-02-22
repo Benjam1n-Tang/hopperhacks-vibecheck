@@ -160,6 +160,19 @@ export async function POST(request: Request) {
       `Grouping ${participants.length} participants into groups of ${groupSize}`,
     );
 
+    // Update session status to 'grouping' immediately so all users see loading screen
+    const { error: statusUpdateError } = await supabase
+      .from('sessions')
+      .update({
+        status: 'grouping',
+      })
+      .eq('id', session.id);
+
+    if (statusUpdateError) {
+      console.error('Error updating session status:', statusUpdateError);
+      // Continue anyway, this is not critical
+    }
+
     // Prepare participant data for Gemini
     const participantList = participants
       .map(

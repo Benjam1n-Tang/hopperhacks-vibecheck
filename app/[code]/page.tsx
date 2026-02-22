@@ -576,8 +576,8 @@ export default function SessionPage() {
           </div>
         )}
 
-        {/* Loading screen for participants during group generation */}
-        {sessionStatus === 'grouping' && !groupsData && !isHost && (
+        {/* Loading screen for all users during group generation */}
+        {sessionStatus === 'grouping' && !groupsData && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-12 border border-white/20 text-center">
               <div className="flex justify-center mb-6">
@@ -589,7 +589,7 @@ export default function SessionPage() {
                 </div>
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">
-                Creating Your Perfect Group...
+                Generating Groups...
               </h2>
               <p className="text-gray-300 text-lg mb-2">
                 Our AI is analyzing personalities and interests
